@@ -11,6 +11,30 @@ while ($row = $result->fetch_assoc()) {
     }
     $doctors_by_dept[$dept][] = $row;
 }
+
+// Fetch active announcement (if any)
+$ann_res = $conn->query("SELECT * FROM announcements WHERE active=1 ORDER BY id DESC LIMIT 1");
+$announcement = $ann_res ? $ann_res->fetch_assoc() : null;
+
+// Flatten doctors into a single list (keep department as property)
+$all_doctors = [];
+foreach ($doctors_by_dept as $dname => $list) {
+    foreach ($list as $r) {
+        $r['department'] = $dname;
+        $all_doctors[] = $r;
+    }
+}
+
+// Provide a lightweight AJAX endpoint for live updates
+if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
+    header('Content-Type: application/json; charset=utf-8');
+    // We return announcement and the flat doctors list
+    echo json_encode([
+        'announcement' => $announcement,
+        'doctors'      => $all_doctors
+    ]);
+    exit;
+} 
 ?>
 
 <!DOCTYPE html>
@@ -20,16 +44,30 @@ while ($row = $result->fetch_assoc()) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>New Sinai MDI Hospital - Doctor Availability</title>
 
-    <!-- Auto refresh every 10 seconds -->
-    <meta http-equiv="refresh" content="10">
+    <!-- Auto refresh removed — using AJAX live updates -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
 
     <style>
         :root {
-            --primary-blue: #0052CC;
-            --secondary-blue: #1e88e5;
-            --accent-yellow: #ffc107;
+            /* Design tokens / color palette */
+            --primary: #0052CC; /* Deep brand blue */
+            --primary-600: #1e88e5; /* Secondary blue */
+            --accent: #ffc107; /* Amber accent */
+            --success: #28a745;
+            --danger: #dc3545;
+            --muted: #eef6ff;
+            --bg: #f7fbff;
+            --surface: rgba(255,255,255,0.9);
+            --text: #052744;
+            --glass: rgba(255,255,255,0.75);
+            --radius: 8px;
+            --shadow-1: 0 2px 8px rgba(3,32,71,0.06);
+            --shadow-2: 0 6px 20px rgba(3,32,71,0.08);
+            /* Legacy aliases for backwards compatibility */
+            --primary-blue: var(--primary);
+            --secondary-blue: var(--primary-600);
+            --accent-yellow: var(--accent);
         }
 
         * {
@@ -38,22 +76,102 @@ while ($row = $result->fetch_assoc()) {
             box-sizing: border-box;
         }
 
+        /* Typography & rendering */
+        html, body { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+        a { color: var(--primary); text-decoration: none; }
+
+        /* Buttons */
+        .btn-primary-custom {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-600) 100%);
+            color: #fff;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            box-shadow: var(--shadow-1);
+        }
+
+
+
+        /* Status badge polish */
+        .status-badge { border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700; }
+        .status-available { background-color: rgba(40,167,69,0.12); color: var(--success); }
+        .status-unavailable { background-color: rgba(255,193,7,0.12); color: #856404; }
+        .status-onleave { background-color: rgba(220,53,69,0.12); color: var(--danger); }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #f0f4f8 0%, #e8f0f8 100%);
+            background: linear-gradient(135deg, #eef6ff 0%, #f7fbff 100%);
             height: 100vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            position: relative;
+            color: #052744;
+        }
+
+        body::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            /* top layer: soft bluish overlay, then uploaded image, then subtle gradients and svg pattern */
+            background-image:
+                linear-gradient(rgba(3,32,71,0.30), rgba(3,32,71,0.30)),
+                url('assets/logo.png'),
+                radial-gradient(circle at 10% 20%, rgba(1,63,113,0.06) 0%, transparent 15%),
+                radial-gradient(circle at 80% 80%, rgba(30,136,229,0.04) 0%, transparent 20%),
+                url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 300"><g fill="%230052CC" fill-opacity="0.06"><rect x="100" y="80" width="80" height="120" rx="6"/><rect x="200" y="50" width="100" height="150" rx="6"/><rect x="320" y="20" width="160" height="180" rx="6"/><rect x="500" y="90" width="80" height="110" rx="6"/><rect x="620" y="60" width="90" height="140" rx="6"/><rect x="720" y="40" width="110" height="160" rx="6"/><rect x="860" y="70" width="140" height="130" rx="6"/><rect x="1050" y="100" width="90" height="100" rx="6"/><rect x="300" y="40" width="40" height="40" rx="4" fill="%230052CC" fill-opacity="0.12"/><rect x="360" y="40" width="40" height="40" rx="4" fill="%230052CC" fill-opacity="0.12"/><rect x="420" y="40" width="40" height="40" rx="4" fill="%230052CC" fill-opacity="0.12"/><text x="700" y="260" font-family="Segoe UI, Arial, sans-serif" font-size="36" fill="%230052CC" fill-opacity="0.06" text-anchor="middle">New Sinai MDI Hospital</text></g></svg>');
+            background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+            background-position: center center, center center, center, center, 50% 35%;
+            background-size: cover, cover, cover, cover, 85%;
+            background-blend-mode: overlay;
+            background-attachment: fixed;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.98;
         }
 
         header {
-            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
+            background: linear-gradient(135deg, rgba(0,82,204,0.88) 0%, rgba(30,136,229,0.80) 100%);
             color: white;
             padding: 15px 20px;
             text-align: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 4px 12px rgba(3,32,71,0.12);
             flex-shrink: 0;
+            position: relative;
+            z-index: 1;
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        /* Announcement banner (scrolling) */
+        .announcement-wrap {
+            position: sticky;
+            top: 0;
+            z-index: 1100;
+            padding: 10px 16px;
+            box-shadow: 0 6px 18px rgba(2,6,23,0.12);
+            border-bottom: 3px solid rgba(0,0,0,0.06);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .announcement { position: relative; overflow: hidden; width: 100%; }
+        .announcement::before, .announcement::after { content: ''; position: absolute; top:0; bottom:0; width:6%; pointer-events: none; z-index:2; }
+        .announcement::before { left:0; background: linear-gradient(to right, var(--fade-bg), transparent); }
+        .announcement::after { right:0; background: linear-gradient(to left, var(--fade-bg), transparent); }
+        .announcement .marquee { display: block; white-space: nowrap; overflow: hidden; }
+        .announcement .marquee span {
+            display: inline-block;
+            font-weight: 800;
+            white-space: nowrap;
+            will-change: transform;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.12);
+        }
+        /* Fallback keyframes (keeps movement for very old browsers) */
+        @keyframes marquee {
+            0% { transform: translateX(0%); }
+            100% { transform: translateX(-100%); }
         }
 
         .header-content {
@@ -71,6 +189,23 @@ while ($row = $result->fetch_assoc()) {
             margin-bottom: 2px;
         }
 
+        .header-logo {
+            height: 56px;
+            width: auto;
+            display: block;
+            object-fit: contain;
+            border-radius: 6px;
+        }
+
+        @media (max-width: 900px) {
+            .header-logo { height: 44px; }
+        }
+
+        @media (max-width: 600px) {
+            .header-logo { height: 36px; }
+            .header-title { font-size: 20px; gap: 8px; }
+        }
+
         .header-subtitle {
             font-size: 12px;
             opacity: 0.9;
@@ -81,6 +216,8 @@ while ($row = $result->fetch_assoc()) {
             padding: 15px;
             overflow: hidden;
             display: flex;
+            position: relative;
+            z-index: 1;
         }
 
         .departments-wrapper {
@@ -93,14 +230,16 @@ while ($row = $result->fetch_assoc()) {
         }
 
         .department-section {
-            background: white;
+            background: linear-gradient(180deg, rgba(255,255,255,0.86), rgba(245,250,255,0.80));
             border-radius: 8px;
             padding: 12px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-            border-top: 3px solid var(--primary-blue);
+            box-shadow: 0 6px 20px rgba(3,32,71,0.08);
+            border-top: 3px solid rgba(0,82,204,0.12);
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
         }
 
         .dept-header {
@@ -136,14 +275,45 @@ while ($row = $result->fetch_assoc()) {
             min-height: 0;
         }
 
+        /* Three-column board (On Schedule / No Clinic / On Leave) */
+        .three-columns {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            width: 100%;
+            height: 100%;
+            min-height: 0;
+        }
+        .status-col {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(245,250,255,0.92));
+            padding: 12px;
+            border-radius: 8px;
+            overflow: hidden;
+            min-height: 0;
+            border: 1px solid rgba(0,0,0,0.04);
+        }
+        .col-header { font-weight:800; font-size:16px; display:flex; justify-content:space-between; gap:8px; padding-bottom:6px; border-bottom:1px solid rgba(0,0,0,0.04); }
+        .col-list { overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-top:6px; min-height:0; }
+
+        .dept-tag { font-size:12px; color:#444; margin-left:8px; }
+
+        @media (max-width: 900px) {
+            .three-columns { grid-template-columns: 1fr; }
+        }
+
         .doctor-card {
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            background: rgba(255, 255, 255, 0.86);
             border-radius: 6px;
             padding: 10px;
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
-            border-left: 3px solid var(--accent-yellow);
+            box-shadow: 0 4px 12px rgba(3,32,71,0.06);
+            border-left: 3px solid rgba(255,193,7,0.85);
             transition: all 0.3s ease;
             flex-shrink: 0;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
         }
 
         .doctor-card:hover {
@@ -169,52 +339,61 @@ while ($row = $result->fetch_assoc()) {
             flex-shrink: 0;
         }
 
-        .status-badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 10px;
-            width: fit-content;
-        }
-
-        .status-available {
-            background-color: #d4edda;
-            color: #155724;
-        }
-
-        .status-unavailable {
-            background-color: #fff3cd;
-            color: #856404;
-        }
-
-        .status-onleave {
-            background-color: #f8d7da;
-            color: #721c24;
-        }
+        .status-badge { display:inline-flex; align-items:center; gap:8px; padding:0; font-weight:700; font-size:13px; }
+        .status-badge::before { content: ""; display:inline-block; width:10px; height:10px; border-radius:50%; background: currentColor; box-shadow: 0 1px 2px rgba(0,0,0,0.06); transform: translateY(-1px); }
+        .status-available { color: var(--success); }
+        .status-unavailable { color: var(--danger); }
+        .status-onleave { color: var(--danger); }
+        .status-nomedical { color: #6c757d; }
+        .status-onschedule { color: var(--primary-blue); }
 
         .resume-info {
-            font-size: 9px;
-            color: #666;
-            margin-top: 4px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            font-size: 11px;
+            color: #444;
+            margin-top: 6px;
+            /* allow wrap so long texts don't get truncated */
+            white-space: normal;
+            overflow: visible;
+            text-overflow: unset;
+            display: block;
         }
 
         .resume-info i {
             color: var(--secondary-blue);
-            margin-right: 2px;
+            margin-right: 6px;
+        }
+
+        /* Status note (shows appointment/resume/no-medical messages) */
+        .status-note {
+            font-size: 13px;
+            color: #052744;
+            margin-top: 8px;
+            display:block;
+            font-weight:700;
+            background: rgba(255,255,255,0.9);
+            padding: 6px 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .status-note .muted {
+            font-weight:600;
+            color: #444;
+            font-size: 12px;
+            margin-left:8px;
         }
 
         footer {
-            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
+            background: linear-gradient(135deg, rgba(0,82,204,0.95) 0%, rgba(30,136,229,0.95) 100%);
             color: white;
             text-align: center;
             padding: 10px;
             font-size: 12px;
             box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
             flex-shrink: 0;
+            position: relative;
+            z-index: 1;
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
         }
 
         .update-time {
@@ -601,54 +780,105 @@ while ($row = $result->fetch_assoc()) {
 <header>
     <div class="header-content">
         <div class="header-title">
-            <i class="bi bi-hospital"></i>
-            New Sinai MDI Hospital
+            <img src="assets/logo2.png" alt="New Sinai MDI Hospital Logo" class="header-logo" />
+            <span>New Sinai MDI Hospital</span>
         </div>
         <div class="header-subtitle">Doctor Availability Board</div>
     </div>
 </header>
 
-<div class="container">
-    <div class="departments-wrapper">
-        <?php foreach ($doctors_by_dept as $dept => $doctors): ?>
-            <div class="department-section">
-                <div class="dept-header">
-                    <div class="dept-icon"><i class="bi bi-building"></i></div>
-                    <div class="dept-name"><?= htmlspecialchars($dept) ?></div>
-                </div>
+<?php if (!empty($announcement) && trim($announcement['text'] ?? '') !== ''):
+    $font_size = intval($announcement['font_size'] ?? 32);
+    $speed = intval($announcement['speed'] ?? 14);
+    $bg_color = $announcement['bg_color'] ?? '#fff8e1';
+    $text_color = $announcement['text_color'] ?? '#052744';
+    $text = $announcement['text'];
+?>
+    <div id="announcement-wrap" class="announcement-wrap" style="background: <?= htmlspecialchars($bg_color) ?>; color: <?= htmlspecialchars($text_color) ?>;">
+        <div style="display:flex; align-items:center; gap:12px; width:100%;">
+            <i class="bi bi-megaphone-fill" style="font-size:22px; color: <?= htmlspecialchars($text_color) ?>;"></i>
+            <div class="announcement" id="announcement" style="flex:1; --fade-bg: <?= htmlspecialchars($bg_color) ?>;">
+                <div class="marquee"><span class="marquee-content" data-speed="<?= $speed ?>" style="font-size: <?= $font_size ?>px; color: <?= htmlspecialchars($text_color) ?>;"><?= htmlspecialchars($text) ?></span></div>
+            </div>
+            <div id="announcement-updated" style="min-width:120px; text-align:right; font-size:12px; opacity:0.9;">
+                <?= !empty($announcement['updated_at']) ? htmlspecialchars(date('M d, Y H:i', strtotime($announcement['updated_at']))) : '' ?>
+            </div>
+        </div>
+    </div> 
+<?php endif; ?>
 
-                <div class="doctor-grid">
-                    <?php foreach ($doctors as $doctor): ?>
-                        <div class="doctor-card">
+<div class="container">
+    <?php
+        // Pre-group doctors into the three status columns for server-side initial render
+        $groups = ['on schedule' => [], 'on leave' => [], 'no medical' => []];
+        foreach ($all_doctors as $d) {
+            $low = strtolower(trim($d['status'] ?? ''));
+            if ($low === '' || strpos($low, 'no medical') !== false || strpos($low, 'no clinic') !== false) {
+                $key = 'no medical';
+            } elseif (strpos($low, 'leave') !== false) {
+                $key = 'on leave';
+            } elseif (strpos($low, 'schedule') !== false || strpos($low, 'available') !== false) {
+                $key = 'on schedule';
+            } else {
+                $key = 'no medical';
+            }
+            $groups[$key][] = $d;
+        }
+    ?>
+
+    <div class="three-columns departments-wrapper" role="list">
+        <?php foreach (['on schedule' => 'On Schedule Today', 'no medical' => 'No Clinic', 'on leave' => 'On Leave'] as $k => $label): ?>
+            <div class="status-col" data-status="<?= htmlspecialchars($k) ?>" role="group" aria-labelledby="<?= 'col-'.md5($k) ?>">
+                <div class="col-header" id="<?= 'col-'.md5($k) ?>"><span><?= htmlspecialchars($label) ?></span> <span class="col-count">(<?= count($groups[$k]) ?>)</span></div>
+                <div class="col-list" role="list">
+                    <?php foreach ($groups[$k] as $doctor): ?>
+                        <div class="doctor-card" role="listitem">
                             <div class="doctor-name">
-                                <i class="doctor-icon bi bi-person-fill"></i>
+                                <i class="doctor-icon bi bi-person-fill" aria-hidden="true"></i>
                                 <?= htmlspecialchars($doctor['name']) ?>
+                                <small class="dept-tag" style="margin-left:8px; opacity:0.8; font-weight:600;">(<?= htmlspecialchars($doctor['department'] ?? '') ?>)</small>
                             </div>
 
                             <?php
-                            $status = $doctor['status'];
-                            if ($status == 'Available') {
-                                $badge_class = 'status-available';
-                                $icon = 'bi-check-circle-fill';
-                            } elseif ($status == 'Not Available') {
-                                $badge_class = 'status-unavailable';
-                                $icon = 'bi-dash-circle-fill';
-                            } else {
-                                $badge_class = 'status-onleave';
-                                $icon = 'bi-clock-history';
-                            }
+                                $low = strtolower(trim($doctor['status'] ?? ''));
+                                if ($low === '' || strpos($low, 'no medical') !== false || strpos($low, 'no clinic') !== false) {
+                                    $badge_class = 'status-noclinic'; $status_label = 'No Clinic'; $icon = 'bi-x-circle-fill';
+                                } elseif (strpos($low, 'leave') !== false) {
+                                    $badge_class = 'status-onleave'; $status_label = 'On Leave'; $icon = 'bi-clock-history';
+                                } else {
+                                    $badge_class = 'status-onschedule'; $status_label = 'On Schedule'; $icon = 'bi-calendar-check';
+                                }
                             ?>
 
-                            <span class="status-badge <?= $badge_class ?>">
-                                <i class="bi <?= $icon ?>"></i> <?= htmlspecialchars($status) ?>
-                            </span>
+                            <span class="status-badge <?= $badge_class ?>"><i class="bi <?= $icon ?>" aria-hidden="true" style="margin-right:6px"></i> <?= htmlspecialchars($status_label) ?></span>
 
-                            <?php if ($status == 'On Leave' && $doctor['resume_date']): ?>
-                                <div class="resume-info">
-                                    <i class="bi bi-calendar-event"></i>
-                                    Resumes: <?= date("M d, Y", strtotime($doctor['resume_date'])) ?>
-                                </div>
-                            <?php endif; ?>
+                            <div class="status-note">
+                                <?php if ($k == 'on schedule'): ?>
+                                    <?php if (!empty($doctor['appt_start']) && !empty($doctor['appt_end'])): ?>
+                                        <span>Appointment:</span>
+                                        <span class="muted"><?= htmlspecialchars(date("h:i A", strtotime($doctor['appt_start'])) . ' - ' . date("h:i A", strtotime($doctor['appt_end']))) ?></span>
+                                    <?php elseif (!empty($doctor['appt_start'])): ?>
+                                        <span>Appointment from</span>
+                                        <span class="muted"><?= htmlspecialchars(date("h:i A", strtotime($doctor['appt_start']))) ?></span>
+                                    <?php elseif (!empty($doctor['appt_end'])): ?>
+                                        <span>Appointment until</span>
+                                        <span class="muted"><?= htmlspecialchars(date("h:i A", strtotime($doctor['appt_end']))) ?></span>
+                                    <?php else: ?>
+                                        <span>On Schedule</span>
+                                        <span class="muted">(no time set)</span>
+                                    <?php endif; ?>
+                                <?php elseif ($k == 'no medical'): ?>
+                                    <span>No Clinic</span>
+                                <?php elseif ($k == 'on leave'): ?>
+                                    <?php if (!empty($doctor['remarks'])): ?>
+                                        <span>Remarks:</span>
+                                        <span class="muted"><?= htmlspecialchars($doctor['remarks']) ?></span>
+                                    <?php endif; ?>
+                                    <?php if (!empty($doctor['resume_date'])): ?>
+                                        <div class="resume-info"><i class="bi bi-calendar-event"></i>Resumes: <?= date("M d, Y", strtotime($doctor['resume_date'])) ?></div>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -688,4 +918,223 @@ while ($row = $result->fetch_assoc()) {
     
     // Update time every second
     setInterval(updatePhilippinesTime, 1000);
+
+    // Marquee (improved) — always scrolls smoothly, pauses on hover, restarts on resize
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.announcement .marquee').forEach(m => {
+            const container = m.closest('.announcement');
+            const span = m.querySelector('.marquee-content');
+            if (!span || !container) return;
+
+            function startAnim() {
+                if (span._anim) span._anim.cancel();
+                span.style.whiteSpace = 'nowrap';
+
+                const contentWidth = span.offsetWidth;
+                const containerWidth = container.offsetWidth;
+                const distance = contentWidth + containerWidth;
+
+                // Speed from admin is seconds for a base pass; scale by distance vs container
+                const baseSpeed = parseFloat(span.dataset.speed) || 14;
+                const duration = Math.max(2000, Math.round(baseSpeed * 1000 * (distance / Math.max(containerWidth, 100))));
+
+                // start just outside right edge
+                span.style.transform = `translateX(${containerWidth}px)`;
+
+                // Web Animations API (smooth and consistent)
+                try {
+                    span._anim = span.animate([
+                        { transform: `translateX(${containerWidth}px)` },
+                        { transform: `translateX(-${contentWidth}px)` }
+                    ], { duration: duration, iterations: Infinity, easing: 'linear' });
+                } catch (e) {
+                    // fallback to CSS animation if WAAPI not available
+                    span.style.transition = `transform ${duration}ms linear`;
+                    let pos = containerWidth;
+                    function cssLoop() {
+                        span.style.transform = `translateX(-${contentWidth}px)`;
+                        setTimeout(() => {
+                            span.style.transition = 'none';
+                            span.style.transform = `translateX(${containerWidth}px)`;
+                            // force reflow
+                            void span.offsetWidth;
+                            span.style.transition = `transform ${duration}ms linear`;
+                            setTimeout(cssLoop, 50);
+                        }, duration);
+                    }
+                    cssLoop();
+                }
+            }
+
+            startAnim();
+
+            let resizeTimer;
+            window.addEventListener('resize', function() { clearTimeout(resizeTimer); resizeTimer = setTimeout(startAnim, 150); });
+
+            container.addEventListener('mouseenter', function() { if (span._anim) span._anim.pause(); });
+            container.addEventListener('mouseleave', function() { if (span._anim) span._anim.play(); });
+        });
+    });
+
+    // --- Live updates without full page reload (AJAX polling) ---
+    (function() {
+        const POLL_MS = 5000;
+        let lastData = null;
+
+        function formatUpdatedAt(ts) {
+            try {
+                const d = new Date(ts);
+                return d.toLocaleString('en-US', {year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit'});
+            } catch(e) { return ts || ''; }
+        }
+
+        function buildDoctorCard(doc) {
+            const card = document.createElement('div');
+            card.className = 'doctor-card';
+            const name = document.createElement('div');
+            name.className = 'doctor-name';
+            const icon = document.createElement('i'); icon.className = 'doctor-icon bi bi-person-fill'; icon.setAttribute('aria-hidden','true');
+            name.appendChild(icon);
+            const text = document.createElement('span'); text.textContent = doc.name || '';
+            name.appendChild(text);
+            card.appendChild(name);
+
+            const status = document.createElement('span');
+            const st = (doc.status || '').toLowerCase();
+            let label = 'No Clinic', badge = 'status-noclinic', iconCls = 'bi-x-circle-fill';
+            if (st.indexOf('leave') !== -1) { label = 'On Leave'; badge = 'status-onleave'; iconCls = 'bi-clock-history'; }
+            else if (st.indexOf('schedule') !== -1 || st.indexOf('available') !== -1) { label = 'On Schedule'; badge = 'status-onschedule'; iconCls = 'bi-calendar-check'; }
+            status.className = 'status-badge ' + badge;
+            status.innerHTML = '<i class="bi ' + iconCls + '" aria-hidden="true" style="margin-right:6px"></i> ' + label;
+            card.appendChild(status);
+
+            // helper to parse common DB time formats robustly
+            function parsePossibleTime(s) {
+                if (!s) return null;
+                s = String(s).trim();
+                if (!s || s.indexOf('0000') === 0) return null; // invalid zero-date
+
+                // HH:MM or HH:MM:SS
+                const hm = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+                if (hm) {
+                    const h = parseInt(hm[1],10), m = parseInt(hm[2],10), sec = parseInt(hm[3]||'0',10);
+                    const d = new Date(); d.setHours(h, m, sec, 0); return d;
+                }
+
+                // common DB format YYYY-MM-DD HH:MM:SS -> convert to ISO
+                const isoLike = s.replace(' ', 'T');
+                let d = new Date(isoLike);
+                if (!isNaN(d)) return d;
+
+                // fallback to Date parsing
+                d = new Date(s);
+                if (!isNaN(d)) return d;
+
+                return null;
+            }
+
+            function formatTimeStr(s) {
+                const d = parsePossibleTime(s);
+                if (!d) return null;
+                try { return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); } catch(e) { return null; }
+            }
+
+            const note = document.createElement('div'); note.className = 'status-note';
+            if (label === 'On Schedule') {
+                const start = formatTimeStr(doc.appt_start);
+                const end = formatTimeStr(doc.appt_end);
+                if (start && end) {
+                    note.innerHTML = '<span>Appointment:</span> <span class="muted">' + start + ' - ' + end + '</span>';
+                } else if (start) {
+                    note.innerHTML = '<span>Appointment from</span> <span class="muted">' + start + '</span>';
+                } else {
+                    note.innerHTML = '<span>On Schedule</span> <span class="muted">(no time set)</span>';
+                }
+            } else if (label === 'No Clinic') {
+                note.textContent = 'No Clinic';
+            } else if (label === 'On Leave') {
+                if (doc.remarks) {
+                    note.innerHTML = '<span>Remarks:</span> <span class="muted">' + doc.remarks + '</span>';
+                }
+                if (doc.resume_date) {
+                    const res = document.createElement('div'); res.className = 'resume-info'; res.innerHTML = '<i class="bi bi-calendar-event"></i>Resumes: ' + formatUpdatedAt(doc.resume_date); note.appendChild(res);
+                }
+            }
+            card.appendChild(note);
+            return card;
+        }
+
+        function updateBoard(data) {
+            if (!data) return;
+            // Announcement
+            const aw = document.getElementById('announcement-wrap');
+            if (!data.announcement || !data.announcement.text || data.announcement.text.trim() === '') {
+                if (aw) aw.style.display = 'none';
+            } else {
+                if (aw) {
+                    aw.style.display = 'flex';
+                    aw.style.background = data.announcement.bg_color || '';
+                    aw.style.color = data.announcement.text_color || '';
+                    const span = aw.querySelector('.marquee-content');
+                    if (span) {
+                        span.textContent = data.announcement.text || '';
+                        span.style.fontSize = (data.announcement.font_size || 32) + 'px';
+                        span.dataset.speed = data.announcement.speed || 14;
+                    }
+                    const up = document.getElementById('announcement-updated');
+                    if (up) up.textContent = data.announcement.updated_at ? formatUpdatedAt(data.announcement.updated_at) : '';
+                    // restart marquee by triggering resize
+                    window.dispatchEvent(new Event('resize'));
+                }
+            }
+
+            // Status columns (three columns across all doctors)
+            const wrapper = document.querySelector('.three-columns');
+            if (!wrapper) return;
+
+            // If identical data, skip repaint for performance
+            try { if (JSON.stringify(data) === JSON.stringify(lastData)) return; } catch(e) {}
+            lastData = data;
+
+            // group flat doctors array
+            const groups = { 'on schedule': [], 'on leave': [], 'no medical': [] };
+            (data.doctors || []).forEach(d => {
+                const st = (d.status || '').toLowerCase();
+                if (st === '' || st.indexOf('no medical') !== -1 || st.indexOf('no clinic') !== -1) groups['no medical'].push(d);
+                else if (st.indexOf('leave') !== -1) groups['on leave'].push(d);
+                else if (st.indexOf('schedule') !== -1 || st.indexOf('available') !== -1) groups['on schedule'].push(d);
+                else groups['no medical'].push(d);
+            });
+
+            // rebuild with three columns
+            wrapper.innerHTML = '';
+            const order = [['on schedule','On Schedule Today'], ['no medical','No Clinic'], ['on leave','On Leave']];
+            order.forEach(([key,label]) => {
+                const col = document.createElement('div'); col.className = 'status-col'; col.setAttribute('data-status', key);
+                const hdr = document.createElement('div'); hdr.className = 'col-header'; hdr.innerHTML = '<span>' + label + '</span> <span class="col-count">(' + (groups[key]||[]).length + ')</span>';
+                const list = document.createElement('div'); list.className = 'col-list';
+                (groups[key] || []).forEach(doc => {
+                    const card = buildDoctorCard(doc);
+                    // show department on card for context
+                    const deptTag = document.createElement('small'); deptTag.className = 'dept-tag'; deptTag.style.marginLeft = '8px'; deptTag.style.opacity = '0.8'; deptTag.style.fontWeight = '600'; deptTag.textContent = '(' + (doc.department || '') + ')';
+                    const name = card.querySelector('.doctor-name'); if (name) name.appendChild(deptTag);
+                    list.appendChild(card);
+                });
+                col.appendChild(hdr); col.appendChild(list); wrapper.appendChild(col);
+            });
+        }
+
+        async function fetchLoop() {
+            try {
+                const res = await fetch(window.location.pathname + '?ajax=1');
+                if (!res.ok) return;
+                const data = await res.json();
+                updateBoard(data);
+            } catch (e) { console.warn('Live update failed', e); }
+        }
+
+        // Initial fetch and periodic polling
+        fetchLoop();
+        setInterval(fetchLoop, POLL_MS);
+    })();
 </script>
