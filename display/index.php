@@ -146,8 +146,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
 
         /* Announcement banner (scrolling) */
         .announcement-wrap {
-            position: sticky;
-            top: 0;
+            position: relative;
             z-index: 1100;
             padding: 10px 16px;
             box-shadow: 0 6px 18px rgba(2,6,23,0.12);
@@ -156,36 +155,60 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             align-items: center;
             gap: 12px;
         }
-        .announcement { position: relative; overflow: hidden; width: 100%; }
-        .announcement::before, .announcement::after { content: ''; position: absolute; top:0; bottom:0; width:6%; pointer-events: none; z-index:2; }
-        .announcement::before { left:0; background: linear-gradient(to right, var(--fade-bg), transparent); }
-        .announcement::after { right:0; background: linear-gradient(to left, var(--fade-bg), transparent); }
-        .announcement { position: relative; }
-        /* Marquee track spans the whole viewport so the announcement moves across the whole screen */
-        .announcement .marquee { position: relative; height: 40px; overflow: hidden; }
+        .announcement { 
+            position: relative; 
+            overflow: hidden; 
+            width: 100%; 
+            height: 40px;
+        }
+        .announcement::before, .announcement::after { 
+            content: ''; 
+            position: absolute; 
+            top:0; 
+            bottom:0; 
+            width:6%; 
+            pointer-events: none; 
+            z-index:2; 
+        }
+        .announcement::before { 
+            left:0; 
+            background: linear-gradient(to right, var(--fade-bg), transparent); 
+        }
+        .announcement::after { 
+            right:0; 
+            background: linear-gradient(to left, var(--fade-bg), transparent); 
+        }
+        
+        /* Marquee track - continuous infinite scroll from right to left */
+        .announcement .marquee { 
+            position: relative; 
+            height: 100%; 
+            overflow: hidden; 
+        }
         .announcement .marquee .marquee-track {
-            position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
-            width: 100vw; display: flex; align-items: center; z-index: 1; pointer-events: none;
+            position: absolute; 
+            left: 0; 
+            top: 50%; 
+            transform: translateY(-50%);
+            display: inline-flex; 
+            align-items: center; 
+            white-space: nowrap;
+            will-change: transform;
         }
         .announcement .marquee .marquee-item {
-            display: inline-block; font-weight: 800; white-space: nowrap; will-change: transform; text-shadow: 0 1px 2px rgba(0,0,0,0.12);
+            display: inline-block; 
+            font-weight: 800; 
+            white-space: nowrap; 
+            padding-right: 100px;
         }
-
-        /* Visual effect when text passes behind the megaphone (balanced with design) */
-        .announcement .marquee .marquee-item.passing {
-            /* Keep text blue to match the brand and remove color transition */
-            color: var(--primary-blue) !important;
-            /* subtle bluish glow for balance */
-            text-shadow: 0 4px 10px rgba(0,82,204,0.08) !important;
-            /* remove scale/bounce to keep it static */
-            transform: none !important;
-            /* only animate text-shadow (no color or transform changes) */
-            transition: text-shadow 160ms linear;
-        }
-        /* Fallback keyframes (keeps movement for very old browsers) */
-        @keyframes marquee {
-            0% { transform: translateX(0%); }
-            100% { transform: translateX(-100%); }
+        
+        @keyframes scrollLeftInfinite {
+            0% {
+                transform: translateX(0) translateY(-50%);
+            }
+            100% {
+                transform: translateX(-50%) translateY(-50%);
+            }
         }
 
         .header-content {
@@ -234,102 +257,103 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             z-index: 1;
         }
 
-        .departments-wrapper {
+        /* Single table with dividing line */
+        .main-board {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 12px;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
             width: 100%;
             height: 100%;
-            overflow: hidden;
-        }
-
-        .department-section {
             background: linear-gradient(180deg, rgba(255,255,255,0.86), rgba(245,250,255,0.80));
             border-radius: 8px;
-            padding: 12px;
+            padding: 0;
             box-shadow: 0 6px 20px rgba(3,32,71,0.08);
             border-top: 3px solid rgba(0,82,204,0.12);
-            display: flex;
-            flex-direction: column;
             overflow: hidden;
             backdrop-filter: blur(6px);
             -webkit-backdrop-filter: blur(6px);
+            position: relative;
         }
 
-        .dept-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 10px;
-            padding-bottom: 8px;
-            border-bottom: 2px solid var(--accent-yellow);
-            flex-shrink: 0;
+        /* Vertical dividing line */
+        .main-board::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(to bottom, 
+                rgba(0,82,204,0.1) 0%, 
+                rgba(0,82,204,0.3) 50%, 
+                rgba(0,82,204,0.1) 100%);
+            transform: translateX(-50%);
+            z-index: 1;
         }
 
-        .dept-icon {
-            font-size: 18px;
-            color: var(--primary-blue);
-        }
-
-        .dept-name {
-            font-size: 16px;
-            font-weight: 700;
-            color: var(--primary-blue);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .doctor-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            overflow-y: auto;
-            flex: 1;
-            min-height: 0;
-        }
-
-        /* Two-column side-by-side board (No Clinic / On Leave) */
-        .three-columns {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 0; /* no gap between columns */
-            width: 100%;
-            height: 100%;
-            min-height: 0;
-        }
-
-        /* Draw a vertical separator between the two adjacent status columns */
-        .status-col + .status-col {
-            border-left: 2px solid rgba(0,0,0,0.06);
-        }
-
-        /* Ensure columns have inner spacing so content doesn't touch the separator */
-        .status-col { padding: 12px 18px; }
-
-        /* Mobile: stack vertically and use a horizontal separator instead */
-        @media (max-width: 900px) {
-            .three-columns { grid-template-columns: 1fr; gap: 12px; }
-            .status-col + .status-col { border-left: none; border-top: 2px solid rgba(0,0,0,0.06); }
-        }
         .status-col {
             display: flex;
             flex-direction: column;
             gap: 8px;
-            background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(245,250,255,0.92));
-            padding: 12px;
-            border-radius: 8px;
+            padding: 12px 18px;
             overflow: hidden;
             min-height: 0;
-            border: 1px solid rgba(0,0,0,0.04);
+            position: relative;
         }
-        .col-header { font-weight:800; font-size:16px; display:flex; justify-content:space-between; gap:8px; padding-bottom:6px; border-bottom:1px solid rgba(0,0,0,0.04); }
-        .col-list { overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-top:6px; min-height:0; }
 
-        .dept-tag { font-size:12px; color:#444; margin-left:8px; }
+        .col-header { 
+            font-weight: 800; 
+            font-size: 18px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            gap: 8px; 
+            padding-bottom: 10px; 
+            border-bottom: 2px solid var(--accent-yellow);
+            flex-shrink: 0;
+        }
 
-        @media (max-width: 900px) {
-            .three-columns { grid-template-columns: 1fr; }
+        .col-header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .col-header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .resumes-label {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--primary-blue);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .resumes-label i {
+            font-size: 14px;
+        }
+
+        .current-date {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--primary-blue);
+            background: rgba(0,82,204,0.08);
+            padding: 4px 10px;
+            border-radius: 6px;
+        }
+
+        .col-list { 
+            overflow-y: auto; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 8px; 
+            padding-top: 6px; 
+            min-height: 0; 
         }
 
         .doctor-card {
@@ -350,36 +374,83 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
         }
 
         .doctor-name {
-            font-size: 14px;
+            font-size: 28px;
             font-weight: 700;
             color: var(--primary-blue);
-            margin-bottom: 5px;
+            margin-bottom: 4px;
             display: flex;
             align-items: center;
             gap: 5px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
 
         .doctor-icon {
-            font-size: 14px;
+            font-size: 20px;
             flex-shrink: 0;
         }
 
-        .status-badge { display:inline-flex; align-items:center; gap:8px; padding:0; font-weight:700; font-size:13px; }
-        .status-badge::before { content: ""; display:inline-block; width:10px; height:10px; border-radius:50%; background: currentColor; box-shadow: 0 1px 2px rgba(0,0,0,0.06); transform: translateY(-1px); }
+        .doctor-specialization {
+            font-size: 14px;
+            color: #444;
+            font-weight: 600;
+            margin-bottom: 6px;
+            padding-left: 19px;
+        }
+
+        .doctor-name-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+
+        .doctor-name-left {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .resume-date-right {
+            font-size: 18px;
+            color: var(--primary-blue);
+            font-weight: 600;
+            white-space: nowrap;
+            background: rgba(0,82,204,0.08);
+            padding: 3px 8px;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+
+        .status-badge { 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 8px; 
+            padding: 0; 
+            font-weight: 700; 
+            font-size: 13px; 
+        }
+        .status-badge::before { 
+            content: ""; 
+            display: inline-block; 
+            width: 10px; 
+            height: 10px; 
+            border-radius: 50%; 
+            background: currentColor; 
+            box-shadow: 0 1px 2px rgba(0,0,0,0.06); 
+            transform: translateY(-1px); 
+        }
         .status-available { color: var(--success); }
         .status-unavailable { color: var(--danger); }
         .status-onleave { color: var(--danger); }
-        .status-nomedical { color: #6c757d; }
+        .status-noclinic { color: #6c757d; }
         .status-onschedule { color: var(--primary-blue); }
 
         .resume-info {
             font-size: 11px;
             color: #444;
             margin-top: 6px;
-            /* allow wrap so long texts don't get truncated */
             white-space: normal;
             overflow: visible;
             text-overflow: unset;
@@ -391,23 +462,23 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             margin-right: 6px;
         }
 
-        /* Status note (shows appointment/resume/no-medical messages) */
+        /* Status note */
         .status-note {
             font-size: 13px;
             color: #052744;
             margin-top: 8px;
-            display:block;
-            font-weight:700;
+            display: block;
+            font-weight: 700;
             background: rgba(255,255,255,0.9);
             padding: 6px 10px;
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.04);
         }
         .status-note .muted {
-            font-weight:600;
+            font-weight: 600;
             color: #444;
             font-size: 12px;
-            margin-left:8px;
+            margin-left: 8px;
         }
 
         footer {
@@ -431,54 +502,60 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
         }
 
         /* Scrollbar styling */
-        .doctor-grid::-webkit-scrollbar {
+        .col-list::-webkit-scrollbar {
             width: 4px;
         }
 
-        .doctor-grid::-webkit-scrollbar-track {
+        .col-list::-webkit-scrollbar-track {
             background: #f1f1f1;
             border-radius: 10px;
         }
 
-        .doctor-grid::-webkit-scrollbar-thumb {
+        .col-list::-webkit-scrollbar-thumb {
             background: var(--primary-blue);
             border-radius: 10px;
         }
 
-        .doctor-grid::-webkit-scrollbar-thumb:hover {
+        .col-list::-webkit-scrollbar-thumb:hover {
             background: var(--secondary-blue);
         }
 
-        /* Tablet and iPad (768px to 1024px) */
+        /* Mobile: stack vertically */
+        @media (max-width: 900px) {
+            .main-board { 
+                grid-template-columns: 1fr; 
+                gap: 0;
+            }
+            .main-board::before {
+                left: 0;
+                right: 0;
+                top: 50%;
+                bottom: auto;
+                width: auto;
+                height: 3px;
+                background: linear-gradient(to right, 
+                    rgba(0,82,204,0.1) 0%, 
+                    rgba(0,82,204,0.3) 50%, 
+                    rgba(0,82,204,0.1) 100%);
+                transform: translateY(-50%);
+            }
+        }
+
+        /* Responsive adjustments */
         @media (max-width: 1024px) {
             .header-title {
                 font-size: 28px;
             }
 
-            .departments-wrapper {
-                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-                gap: 10px;
-            }
-
-            .dept-name {
-                font-size: 15px;
-            }
-
             .doctor-name {
-                font-size: 13px;
+                font-size: 18px;
             }
 
             .status-badge {
                 font-size: 9px;
-                padding: 2px 6px;
-            }
-
-            .resume-info {
-                font-size: 8px;
             }
         }
 
-        /* Tablet portrait (600px to 900px) */
         @media (max-width: 900px) {
             header {
                 padding: 12px 15px;
@@ -489,61 +566,143 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 gap: 8px;
             }
 
+        /* Tablet and iPad (768px to 1024px) */
+        @media (max-width: 1024px) {
+            .header-title {
+                font-size: 26px;
+            }
+
             .header-subtitle {
                 font-size: 11px;
             }
 
-            .container {
-                padding: 12px;
-            }
-
-            .departments-wrapper {
-                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-                gap: 10px;
-            }
-
-            .department-section {
-                padding: 10px;
-                border-top: 2px solid var(--primary-blue);
-            }
-
-            .dept-header {
-                margin-bottom: 8px;
-                padding-bottom: 6px;
-                gap: 6px;
-            }
-
-            .dept-icon {
+            .col-header {
                 font-size: 16px;
+                padding-bottom: 8px;
             }
 
-            .dept-name {
-                font-size: 14px;
-            }
-
-            .doctor-grid {
-                gap: 6px;
-            }
-
-            .doctor-card {
-                padding: 8px;
-                border-left: 2px solid var(--accent-yellow);
+            .current-date {
+                font-size: 12px;
+                padding: 3px 8px;
             }
 
             .doctor-name {
+                font-size: 18px;
+            }
+
+            .doctor-specialization {
                 font-size: 12px;
-                margin-bottom: 4px;
-                gap: 4px;
             }
 
             .status-badge {
-                font-size: 8px;
-                padding: 2px 5px;
+                font-size: 11px;
             }
 
             .resume-info {
-                font-size: 8px;
-                margin-top: 3px;
+                font-size: 10px;
+            }
+
+            .status-note {
+                font-size: 12px;
+                padding: 5px 8px;
+            }
+        }
+
+        /* Tablet portrait (600px to 900px) */
+        @media (max-width: 900px) {
+            body {
+                font-size: 14px;
+            }
+
+            header {
+                padding: 12px 15px;
+            }
+
+            .header-title {
+                font-size: 22px;
+                gap: 8px;
+            }
+
+            .header-subtitle {
+                font-size: 10px;
+            }
+
+            .announcement-wrap {
+                padding: 8px 12px;
+            }
+
+            .announcement .marquee .marquee-item {
+                font-size: 18px !important;
+                padding-right: 80px;
+            }
+
+            .container {
+                padding: 10px;
+            }
+
+            .main-board {
+                padding: 8px;
+            }
+
+            .status-col {
+                padding: 10px 12px;
+            }
+
+            .col-header {
+                font-size: 15px;
+                padding-bottom: 8px;
+            }
+
+            .current-date {
+                font-size: 11px;
+                padding: 3px 8px;
+            }
+
+            .doctor-card {
+                padding: 10px;
+            }
+
+            .doctor-name {
+                font-size: 14px;
+                margin-bottom: 4px;
+            }
+
+            .doctor-icon {
+                font-size: 13px;
+            }
+
+            .doctor-specialization {
+                font-size: 11px;
+                margin-bottom: 6px;
+                padding-left: 18px;
+            }
+
+            .resume-date-right {
+                font-size: 10px;
+                padding: 2px 6px;
+            }
+
+            .resumes-label {
+                font-size: 12px;
+            }
+
+            .resumes-label i {
+                font-size: 12px;
+            }
+
+            .status-badge {
+                font-size: 11px;
+            }
+
+            .resume-info {
+                font-size: 10px;
+                margin-top: 5px;
+            }
+
+            .status-note {
+                font-size: 11px;
+                padding: 5px 8px;
+                margin-top: 6px;
             }
 
             footer {
@@ -556,7 +715,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             }
         }
 
-        /* Mobile landscape (600px to 768px) */
+        /* Mobile landscape and portrait (480px to 768px) */
         @media (max-width: 768px) {
             header {
                 padding: 10px 12px;
@@ -567,151 +726,251 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 gap: 6px;
             }
 
+            .header-logo {
+                height: 36px;
+            }
+
             .header-subtitle {
                 font-size: 10px;
             }
 
-            .container {
-                padding: 10px;
+            .announcement-wrap {
+                padding: 8px 10px;
             }
 
-            .departments-wrapper {
-                grid-template-columns: repeat(2, 1fr);
+            #announcement-megaphone {
+                font-size: 18px !important;
+            }
+
+            .announcement .marquee .marquee-item {
+                font-size: 16px !important;
+                padding-right: 60px;
+            }
+
+            #announcement-updated {
+                font-size: 10px !important;
+                min-width: 90px;
+            }
+
+            .container {
+                padding: 8px;
+            }
+
+            .main-board {
+                padding: 8px;
                 gap: 8px;
             }
 
-            .department-section {
-                padding: 8px;
-                border-top: 2px solid var(--primary-blue);
-                border-radius: 6px;
+            .status-col {
+                padding: 10px;
             }
 
-            .dept-header {
-                margin-bottom: 6px;
-                padding-bottom: 5px;
-                gap: 4px;
-            }
-
-            .dept-icon {
+            .col-header {
                 font-size: 14px;
+                padding-bottom: 6px;
             }
 
-            .dept-name {
-                font-size: 13px;
-            }
-
-            .doctor-grid {
-                gap: 5px;
+            .current-date {
+                font-size: 10px;
+                padding: 3px 6px;
             }
 
             .doctor-card {
-                padding: 7px;
-                border-left: 2px solid var(--accent-yellow);
+                padding: 9px;
             }
 
             .doctor-name {
-                font-size: 11px;
+                font-size: 13px;
                 margin-bottom: 3px;
-                gap: 3px;
             }
 
             .doctor-icon {
                 font-size: 12px;
             }
 
+            .doctor-specialization {
+                font-size: 11px;
+                margin-bottom: 5px;
+                padding-left: 17px;
+            }
+
+            .resume-date-right {
+                font-size: 9px;
+                padding: 2px 5px;
+            }
+
+            .resumes-label {
+                font-size: 11px;
+            }
+
+            .resumes-label i {
+                font-size: 11px;
+            }
+
             .status-badge {
-                font-size: 7px;
-                padding: 1px 4px;
-            }
-
-            .resume-info {
-                font-size: 7px;
-                margin-top: 2px;
-            }
-
-            footer {
-                padding: 6px;
                 font-size: 10px;
             }
 
-            .update-time {
-                gap: 3px;
+            .status-badge::before {
+                width: 8px;
+                height: 8px;
+            }
+
+            .resume-info {
                 font-size: 9px;
+                margin-top: 4px;
+            }
+
+            .status-note {
+                font-size: 11px;
+                padding: 5px 7px;
+                margin-top: 5px;
+            }
+
+            .status-note .muted {
+                font-size: 10px;
+            }
+
+            footer {
+                padding: 7px;
+                font-size: 10px;
             }
         }
 
         /* Mobile portrait (up to 600px) */
         @media (max-width: 600px) {
+            body {
+                font-size: 13px;
+            }
+
             header {
                 padding: 8px 10px;
             }
 
             .header-title {
                 font-size: 18px;
-                gap: 4px;
+                gap: 6px;
+            }
+
+            .header-logo {
+                height: 32px;
             }
 
             .header-subtitle {
                 font-size: 9px;
             }
 
+            .announcement-wrap {
+                padding: 6px 8px;
+                gap: 8px;
+            }
+
+            #announcement-megaphone {
+                font-size: 16px !important;
+            }
+
+            .announcement .marquee .marquee-item {
+                font-size: 14px !important;
+                padding-right: 50px;
+            }
+
+            #announcement-updated {
+                font-size: 9px !important;
+                min-width: 80px;
+            }
+
             .container {
                 padding: 8px;
             }
 
-            .departments-wrapper {
-                grid-template-columns: 1fr;
-                gap: 8px;
+            .main-board {
+                padding: 6px;
             }
 
-            .department-section {
-                padding: 8px;
-                border-top: 2px solid var(--primary-blue);
-                border-radius: 6px;
+            .status-col {
+                padding: 8px 10px;
+                gap: 6px;
             }
 
-            .dept-header {
-                margin-bottom: 6px;
-                padding-bottom: 5px;
-                gap: 4px;
-            }
-
-            .dept-icon {
-                font-size: 14px;
-            }
-
-            .dept-name {
+            .col-header {
                 font-size: 13px;
+                padding-bottom: 6px;
+                gap: 6px;
             }
 
-            .doctor-grid {
-                gap: 5px;
+            .current-date {
+                font-size: 9px;
+                padding: 2px 6px;
+            }
+
+            .col-list {
+                gap: 6px;
+                padding-top: 4px;
             }
 
             .doctor-card {
-                padding: 7px;
-                border-left: 2px solid var(--accent-yellow);
+                padding: 8px;
+                border-left: 2px solid rgba(255,193,7,0.85);
             }
 
             .doctor-name {
                 font-size: 12px;
                 margin-bottom: 3px;
-                gap: 3px;
+                gap: 4px;
+            }
+
+            .doctor-icon {
+                font-size: 11px;
+            }
+
+            .doctor-specialization {
+                font-size: 10px;
+                margin-bottom: 4px;
+                padding-left: 15px;
+            }
+
+            .resume-date-right {
+                font-size: 8px;
+                padding: 2px 4px;
+            }
+
+            .resumes-label {
+                font-size: 10px;
+            }
+
+            .resumes-label i {
+                font-size: 10px;
             }
 
             .status-badge {
-                font-size: 8px;
-                padding: 2px 5px;
+                font-size: 9px;
+                gap: 6px;
+            }
+
+            .status-badge::before {
+                width: 7px;
+                height: 7px;
             }
 
             .resume-info {
-                font-size: 8px;
-                margin-top: 2px;
+                font-size: 9px;
+                margin-top: 4px;
+            }
+
+            .status-note {
+                font-size: 10px;
+                padding: 4px 6px;
+                margin-top: 5px;
+            }
+
+            .status-note .muted {
+                font-size: 9px;
+                margin-left: 4px;
             }
 
             footer {
                 padding: 6px;
-                font-size: 10px;
+                font-size: 9px;
             }
 
             .update-time {
@@ -721,6 +980,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
 
         /* Small mobile (under 400px) */
         @media (max-width: 400px) {
+            body {
+                font-size: 12px;
+            }
+
             header {
                 padding: 6px 8px;
             }
@@ -730,74 +993,206 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 gap: 4px;
             }
 
+            .header-logo {
+                height: 28px;
+            }
+
             .header-subtitle {
                 font-size: 8px;
+            }
+
+            .announcement-wrap {
+                padding: 5px 6px;
+                gap: 6px;
+            }
+
+            #announcement-megaphone {
+                font-size: 14px !important;
+            }
+
+            .announcement .marquee .marquee-item {
+                font-size: 12px !important;
+                padding-right: 40px;
+            }
+
+            #announcement-updated {
+                font-size: 8px !important;
+                min-width: 70px;
             }
 
             .container {
                 padding: 6px;
             }
 
-            .departments-wrapper {
-                gap: 6px;
+            .main-board {
+                padding: 5px;
+                border-top: 2px solid rgba(0,82,204,0.12);
             }
 
-            .department-section {
-                padding: 6px;
-                border-top: 2px solid var(--primary-blue);
+            .status-col {
+                padding: 6px 8px;
+                gap: 5px;
             }
 
-            .dept-header {
-                margin-bottom: 4px;
-                padding-bottom: 4px;
+            .col-header {
+                font-size: 12px;
+                padding-bottom: 5px;
                 gap: 4px;
             }
 
-            .dept-icon {
-                font-size: 12px;
+            .current-date {
+                font-size: 8px;
+                padding: 2px 5px;
             }
 
-            .dept-name {
-                font-size: 12px;
-            }
-
-            .doctor-grid {
-                gap: 4px;
+            .col-list {
+                gap: 5px;
+                padding-top: 3px;
             }
 
             .doctor-card {
-                padding: 6px;
-                border-left: 2px solid var(--accent-yellow);
+                padding: 7px;
+                border-left: 2px solid rgba(255,193,7,0.85);
             }
 
             .doctor-name {
                 font-size: 11px;
                 margin-bottom: 2px;
-                gap: 2px;
+                gap: 3px;
             }
 
             .doctor-icon {
                 font-size: 10px;
             }
 
-            .status-badge {
+            .doctor-specialization {
+                font-size: 9px;
+                margin-bottom: 4px;
+                padding-left: 13px;
+            }
+
+            .resume-date-right {
                 font-size: 7px;
                 padding: 1px 3px;
             }
 
+            .resumes-label {
+                font-size: 9px;
+            }
+
+            .resumes-label i {
+                font-size: 9px;
+            }
+
+            .status-badge {
+                font-size: 8px;
+                gap: 5px;
+            }
+
+            .status-badge::before {
+                width: 6px;
+                height: 6px;
+            }
+
             .resume-info {
-                font-size: 7px;
-                margin-top: 1px;
+                font-size: 8px;
+                margin-top: 3px;
+            }
+
+            .status-note {
+                font-size: 9px;
+                padding: 4px 5px;
+                margin-top: 4px;
+            }
+
+            .status-note .muted {
+                font-size: 8px;
+                margin-left: 3px;
             }
 
             footer {
-                padding: 4px;
-                font-size: 9px;
+                padding: 5px;
+                font-size: 8px;
             }
 
             .update-time {
                 gap: 2px;
                 font-size: 8px;
+            }
+        }
+
+        /* Extra small mobile (under 360px) */
+        @media (max-width: 360px) {
+            .header-title {
+                font-size: 14px;
+                gap: 4px;
+            }
+
+            .header-logo {
+                height: 24px;
+            }
+
+            .header-subtitle {
+                font-size: 7px;
+            }
+
+            .announcement-wrap {
+                padding: 4px 5px;
+            }
+
+            #announcement-megaphone {
+                font-size: 12px !important;
+            }
+
+            .announcement .marquee .marquee-item {
+                font-size: 11px !important;
+                padding-right: 35px;
+            }
+
+            #announcement-updated {
+                font-size: 7px !important;
+                min-width: 60px;
+            }
+
+            .col-header {
+                font-size: 11px;
+            }
+
+            .current-date {
+                font-size: 7px;
+                padding: 2px 4px;
+            }
+
+            .doctor-name {
+                font-size: 10px;
+            }
+
+            .doctor-specialization {
+                font-size: 8px;
+                padding-left: 12px;
+            }
+
+            .resume-date-right {
+                font-size: 6px;
+                padding: 1px 3px;
+            }
+
+            .resumes-label {
+                font-size: 8px;
+            }
+
+            .resumes-label i {
+                font-size: 8px;
+            }
+
+            .status-badge {
+                font-size: 7px;
+                gap: 4px;
+            }
+
+            .status-badge::before {
+                width: 5px;
+                height: 5px;
             }
         }
     </style>
@@ -824,11 +1219,15 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
 ?>
     <div id="announcement-wrap" class="announcement-wrap" style="background: <?= htmlspecialchars($bg_color) ?>; color: <?= htmlspecialchars($text_color) ?>;">
         <div style="display:flex; align-items:center; gap:8px; width:100%;">
-            <i id="announcement-megaphone" class="bi bi-megaphone-fill" style="font-size:22px; color: <?= htmlspecialchars($text_color) ?>;"></i>
+            <i id="announcement-megaphone" class="bi bi-megaphone-fill" style="font-size:22px; color: <?= htmlspecialchars($text_color) ?>; flex-shrink: 0;"></i>
             <div class="announcement" id="announcement" style="flex:1; --fade-bg: <?= htmlspecialchars($bg_color) ?>;">
-                <div class="marquee"><div class="marquee-track"><span class="marquee-content" data-speed="<?= $speed ?>" style="font-size: <?= $font_size ?>px; color: <?= htmlspecialchars($text_color) ?>;"><?= htmlspecialchars($text) ?></span></div></div>
+                <div class="marquee">
+                    <div class="marquee-track">
+                        <span class="marquee-item" data-speed="<?= $speed ?>" style="font-size: <?= $font_size ?>px; color: <?= htmlspecialchars($text_color) ?>;"><?= htmlspecialchars($text) ?></span>
+                    </div>
+                </div>
             </div>
-            <div id="announcement-updated" style="min-width:120px; text-align:right; font-size:12px; opacity:0.9;">
+            <div id="announcement-updated" style="min-width:120px; text-align:right; font-size:12px; opacity:0.9; flex-shrink: 0;">
                 <?= !empty($announcement['updated_at']) ? htmlspecialchars(date('M d, Y H:i', strtotime($announcement['updated_at']))) : '' ?>
             </div>
         </div>
@@ -838,89 +1237,125 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
 <div class="container">
     <?php
         // Pre-group doctors into the two status columns for server-side initial render
-            $groups = ['no medical' => [], 'on leave' => []];
-            foreach ($all_doctors as $d) {
-                $low = strtolower(trim($d['status'] ?? ''));
-                if ($low === '' || strpos($low, 'no medical') !== false || strpos($low, 'no clinic') !== false) {
-                    $key = 'no medical';
-                } elseif (strpos($low, 'leave') !== false) {
-                    $key = 'on leave';
-                } elseif (strpos($low, 'schedule') !== false || strpos($low, 'available') !== false) {
-                    // Skip "On Schedule" entries entirely (do not display them)
-                    continue;
-                } else {
-                    $key = 'no medical';
-                }
-                $groups[$key][] = $d;
+        $groups = ['no medical' => [], 'on leave' => []];
+        foreach ($all_doctors as $d) {
+            $low = strtolower(trim($d['status'] ?? ''));
+            if ($low === '' || strpos($low, 'no medical') !== false || strpos($low, 'no clinic') !== false) {
+                $key = 'no medical';
+            } elseif (strpos($low, 'leave') !== false) {
+                $key = 'on leave';
+            } elseif (strpos($low, 'schedule') !== false || strpos($low, 'available') !== false) {
+                // Skip "On Schedule" entries entirely (do not display them)
+                continue;
+            } else {
+                $key = 'no medical';
             }
+            $groups[$key][] = $d;
+        }
     ?>
 
-    <div class="three-columns departments-wrapper" role="list">
-        <div class="status-col" data-status="no medical" role="group" aria-labelledby="<?= 'col-'.md5('no medical') ?>">
-            <div class="col-header" id="<?= 'col-'.md5('no medical') ?>"><span>No Clinic</span> <span class="col-count">(<?= count($groups['no medical']) ?>)</span></div>
-            <div class="col-list" role="list">
+    <div class="main-board">
+        <!-- No Clinic Column -->
+        <div class="status-col" data-status="no medical">
+            <div class="col-header">
+                <div class="col-header-left">
+                    <span>No Clinic Today</span>
+                    <span class="col-count">(<?= count($groups['no medical']) ?>)</span>
+                </div>
+                <div class="current-date" id="current-date-display">
+                    <?= date('M d, Y') ?>
+                </div>
+            </div>
+            <div class="col-list">
                 <?php foreach ($groups['no medical'] as $doctor): ?>
-                    <div class="doctor-card" role="listitem">
+                    <div class="doctor-card">
                         <div class="doctor-name">
-                            <i class="doctor-icon bi bi-person-fill" aria-hidden="true"></i>
-                            <?= htmlspecialchars($doctor['name']) ?>
-                            <small class="dept-tag" style="margin-left:8px; opacity:0.8; font-weight:600;">(<?= htmlspecialchars($doctor['department'] ?? '') ?>)</small>
+                            <i class="doctor-icon bi bi-person-fill"></i>
+                            <span><?= htmlspecialchars($doctor['name']) ?></span>
                         </div>
-
-                        <?php
-                            $low = strtolower(trim($doctor['status'] ?? ''));
-                            if ($low === '' || strpos($low, 'no medical') !== false || strpos($low, 'no clinic') !== false) {
-                                $badge_class = 'status-noclinic'; $status_label = 'No Clinic'; $icon = 'bi-x-circle-fill';
-                            } elseif (strpos($low, 'leave') !== false) {
-                                $badge_class = 'status-onleave'; $status_label = 'On Leave'; $icon = 'bi-clock-history';
-                            } else {
-                                $badge_class = 'status-onschedule'; $status_label = 'On Schedule'; $icon = 'bi-calendar-check';
-                            }
-                        ?>
-
-                        <span class="status-badge <?= $badge_class ?>"><i class="bi <?= $icon ?>" aria-hidden="true" style="margin-right:6px"></i> <?= htmlspecialchars($status_label) ?></span>
-
-                        <div class="status-note">
-                            <span>No Clinic</span>
+                        <div class="doctor-specialization">
+                            <?= htmlspecialchars($doctor['department'] ?? 'General') ?>
                         </div>
                     </div>
                 <?php endforeach; ?>
             </div>
         </div>
 
-        <div class="status-col" data-status="on leave" role="group" aria-labelledby="<?= 'col-'.md5('on leave') ?>">
-            <div class="col-header" id="<?= 'col-'.md5('on leave') ?>"><span>On Leave</span> <span class="col-count">(<?= count($groups['on leave']) ?>)</span></div>
-            <div class="col-list" role="list">
-                <?php foreach ($groups['on leave'] as $doctor): ?>
-                    <div class="doctor-card" role="listitem">
-                        <div class="doctor-name">
-                            <i class="doctor-icon bi bi-person-fill" aria-hidden="true"></i>
-                            <?= htmlspecialchars($doctor['name']) ?>
-                            <small class="dept-tag" style="margin-left:8px; opacity:0.8; font-weight:600;">(<?= htmlspecialchars($doctor['department'] ?? '') ?>)</small>
+        <!-- On Leave Column -->
+        <div class="status-col" data-status="on leave">
+            <div class="col-header">
+                <div class="col-header-left">
+                    <span>On Leave</span>
+                    <span class="col-count">(<?= count($groups['on leave']) ?>)</span>
+                </div>
+                <div class="col-header-right">
+                    <div class="resumes-label">
+                        <i class="bi bi-calendar-check"></i>
+                        <span>Resumes</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-list">
+                <?php 
+                // Separate doctors with resume dates from those without
+                $onLeaveOnly = [];
+                $withResumeDates = [];
+                
+                foreach ($groups['on leave'] as $doctor) {
+                    if (!empty($doctor['resume_date'])) {
+                        $withResumeDates[] = $doctor;
+                    } else {
+                        $onLeaveOnly[] = $doctor;
+                    }
+                }
+                
+                // Display doctors on leave without resume dates first
+                foreach ($onLeaveOnly as $doctor): 
+                ?>
+                    <div class="doctor-card">
+                        <div class="doctor-name-row">
+                            <div class="doctor-name-left">
+                                <i class="doctor-icon bi bi-person-fill"></i>
+                                <span><?= htmlspecialchars($doctor['name']) ?></span>
+                            </div>
+                        </div>
+                        <div class="doctor-specialization">
+                            <?= htmlspecialchars($doctor['department'] ?? 'General') ?>
                         </div>
 
-                        <?php
-                            $low = strtolower(trim($doctor['status'] ?? ''));
-                            if ($low === '' || strpos($low, 'no medical') !== false || strpos($low, 'no clinic') !== false) {
-                                $badge_class = 'status-noclinic'; $status_label = 'No Clinic'; $icon = 'bi-x-circle-fill';
-                            } elseif (strpos($low, 'leave') !== false) {
-                                $badge_class = 'status-onleave'; $status_label = 'On Leave'; $icon = 'bi-clock-history';
-                            } else {
-                                $badge_class = 'status-onschedule'; $status_label = 'On Schedule'; $icon = 'bi-calendar-check';
-                            }
-                        ?>
-
-                        <span class="status-badge <?= $badge_class ?>"><i class="bi <?= $icon ?>" aria-hidden="true" style="margin-right:6px"></i> <?= htmlspecialchars($status_label) ?></span>
-
-                        <div class="status-note">
-                            <?php if (!empty($doctor['remarks'])): ?>
+                        <?php if (!empty($doctor['remarks'])): ?>
+                            <div class="status-note">
                                 <span>Remarks:</span>
                                 <span class="muted"><?= htmlspecialchars($doctor['remarks']) ?></span>
-                            <?php endif; ?>
-                            <?php if (!empty($doctor['resume_date'])): ?>
-                                <div class="resume-info"><i class="bi bi-calendar-event"></i>Resumes: <?= date("M d, Y", strtotime($doctor['resume_date'])) ?></div>
-                            <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                <?php endforeach; ?>
+
+                <?php 
+                // Display doctors with resume dates
+                foreach ($withResumeDates as $doctor): 
+                ?>
+                    <div class="doctor-card">
+                        <div class="doctor-name-row">
+                            <div class="doctor-name-left">
+                                <i class="doctor-icon bi bi-person-fill"></i>
+                                <span><?= htmlspecialchars($doctor['name']) ?></span>
+                            </div>
+                            <div class="resume-date-right">
+                                <?= date("M d, Y", strtotime($doctor['resume_date'])) ?>
+                            </div>
                         </div>
+                        <div class="doctor-specialization">
+                            <?= htmlspecialchars($doctor['department'] ?? 'General') ?>
+                        </div>
+
+                        <?php if (!empty($doctor['remarks'])): ?>
+                            <div class="status-note">
+                                <span>Remarks:</span>
+                                <span class="muted"><?= htmlspecialchars($doctor['remarks']) ?></span>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
             </div>
@@ -952,6 +1387,19 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
         
         const phillipinesTime = new Intl.DateTimeFormat('en-US', options).format(new Date());
         document.getElementById('current-time').textContent = phillipinesTime;
+        
+        // Also update the date display
+        const dateOptions = {
+            timeZone: 'Asia/Manila',
+            year: 'numeric',
+            month: 'short',
+            day: '2-digit'
+        };
+        const dateDisplay = new Intl.DateTimeFormat('en-US', dateOptions).format(new Date());
+        const dateEl = document.getElementById('current-date-display');
+        if (dateEl) {
+            dateEl.textContent = dateDisplay;
+        }
     }
     
     // Update time immediately
@@ -960,139 +1408,44 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
     // Update time every second
     setInterval(updatePhilippinesTime, 1000);
 
-    // Marquee (improved) — continuous seamless scroll, pauses on hover, restarts on resize
+    // Improved Marquee - Infinite continuous scrolling from right to left
     document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('.announcement .marquee').forEach(m => {
-            const container = m.closest('.announcement');
-            const original = m.querySelector('.marquee-content');
-            if (!original || !container) return;
+        const marqueeContainer = document.querySelector('.announcement .marquee');
+        if (!marqueeContainer) return;
 
-            // ensure track exists and contains two copies for seamless loop
-            let track = m.querySelector('.marquee-track');
-            track.style.overflow = 'hidden';
-            track.style.display = 'block';
+        const track = marqueeContainer.querySelector('.marquee-track');
+        if (!track) return;
 
-            // create two copies of the content inside an inner flex track (for seamless loop)
-            function buildTrack() {
-                track.innerHTML = '';
-                const c1 = document.createElement('span');
-                c1.className = 'marquee-item';
-                c1.style.whiteSpace = 'nowrap';
-                c1.style.display = 'inline-block';
-                // reduce repeat gap for tighter flow; make adjustable later
-                c1.style.paddingRight = '2.5rem';
-                // preserve admin font size but ensure a minimum for readability
-                const origFont = original.style.fontSize || '';
-                if (!origFont) c1.style.fontSize = '20px';
-                c1.innerHTML = original.innerHTML;
-                const c2 = c1.cloneNode(true);
-                track.appendChild(c1); track.appendChild(c2);
-                return c1;
-            }
+        const originalItems = track.querySelectorAll('.marquee-item');
+        if (!originalItems.length) return;
 
-            let anim = null, item = null;
+        const firstItem = originalItems[0];
+        
+        // Get speed from data attribute
+        const speed = parseFloat(firstItem.dataset.speed) || 14;
+        
+        // Duplicate content multiple times for seamless infinite scroll
+        const originalHTML = track.innerHTML;
+        track.innerHTML = originalHTML + originalHTML + originalHTML + originalHTML;
 
-            function startAnim() {
-                // cancel existing animation
-                if (anim && typeof anim.cancel === 'function') try { anim.cancel(); } catch(e){}
+        // Apply CSS animation for infinite scroll
+        track.style.animation = `scrollLeftInfinite ${speed}s linear infinite`;
 
-                item = buildTrack();
-                const containerWidth = window.innerWidth || document.documentElement.clientWidth; // use viewport width so it moves across entire screen
-                // ensure track spans viewport
-                track.style.position = 'absolute'; track.style.left = '0'; track.style.right = '0'; track.style.width = containerWidth + 'px';
-
-                // Ensure repeated item covers container width to avoid visible gaps (make infinite seamless)
-                const contentWidth = item.scrollWidth || item.offsetWidth;
-                if (contentWidth < containerWidth) {
-                    const extra = containerWidth - contentWidth + 80; // breathing room
-                    item.style.paddingRight = extra + 'px';
-                }
-                let itemWidth = item.offsetWidth;
-
-                // How long a single full cycle should take (base speed in seconds from admin)
-                const baseSpeed = parseFloat(original.dataset.speed) || 14;
-                // scale by content length relative to container so long texts scroll proportionally
-                const duration = Math.max(2000, Math.round(baseSpeed * 1000 * (itemWidth / Math.max(containerWidth, 100))));
-
-                // Use WAAPI for smoothness where available
-                const trackEl = track;
-
-                // ensure track layout supports full translation: set width to two repeats
-                trackEl.style.display = 'flex';
-                trackEl.style.width = (itemWidth * 2) + 'px';
-                // start at 0 (first copy) so the animation is seamless between the two copies
-                trackEl.style.transform = `translateX(0px)`;
-
-                // duration scaled by item width so speed is consistent
-                const durationAdjusted = Math.max(2000, Math.round(baseSpeed * 1000 * (itemWidth / Math.max(containerWidth, 100))));
-
-                try {
-                    // animate from 0 to -itemWidth (seamless with duplicated content)
-                    anim = trackEl.animate([
-                        { transform: `translateX(0px)` },
-                        { transform: `translateX(-${itemWidth}px)` }
-                    ], { duration: durationAdjusted, iterations: Infinity, easing: 'linear' });
-                    trackEl.style.animation = '';
-                } catch (e) {
-                    // CSS fallback: inject keyframes with unique name
-                    const uid = 'm' + Math.random().toString(36).slice(2,9);
-                    const keyframes = `@keyframes ${uid} { from { transform: translateX(0px); } to { transform: translateX(-${itemWidth}px); } }`;
-                    const style = document.createElement('style'); style.textContent = keyframes; document.head.appendChild(style);
-                    trackEl.style.display = 'flex';
-                    trackEl.style.width = (itemWidth*2) + 'px';
-                    trackEl.style.animation = `${uid} ${durationAdjusted}ms linear infinite`;
-                }
-
-                // Pause/resume handlers
-                container.addEventListener('mouseenter', function() {
-                    if (anim && typeof anim.pause === 'function') anim.pause();
-                    else track.style.animationPlayState = 'paused';
-                });
-                container.addEventListener('mouseleave', function() {
-                    if (anim && typeof anim.play === 'function') anim.play();
-                    else track.style.animationPlayState = 'running';
-                });
-
-                // Monitor overlap with megaphone to create 'through' effect (use viewport coordinates)
-                let rafId = null;
-                const meg = document.getElementById('announcement-megaphone');
-                function monitor() {
-                    if (!meg) return;
-                    const mrect = meg.getBoundingClientRect();
-                    const items = track.querySelectorAll('.marquee-item');
-                    let overlapping = false;
-                    items.forEach(n => {
-                        const r = n.getBoundingClientRect();
-                        const isOverlap = !(r.right < mrect.left || r.left > mrect.right || r.bottom < mrect.top || r.top > mrect.bottom);
-                        n.classList.toggle('passing', !!isOverlap);
-                        if (isOverlap) overlapping = true;
-                    });
-                    // also ensure megaphone highlight toggles
-                    if (meg) {
-                        if (overlapping) meg.classList.add('meg-active'); else meg.classList.remove('meg-active');
-                    }
-                    rafId = requestAnimationFrame(monitor);
-                }
-
-                // stop previous monitor if any
-                if (typeof window._marqueeMonitor === 'number') cancelAnimationFrame(window._marqueeMonitor);
-                window._marqueeMonitor = null;
-                rafId = requestAnimationFrame(monitor);
-                window._marqueeMonitor = rafId;
-            }
-
-            // start immediately
-            startAnim();
-
-            // restart on resize to recompute widths
-            let resizeTimer;
-            window.addEventListener('resize', function() { clearTimeout(resizeTimer); resizeTimer = setTimeout(startAnim, 150); });
-        });
+        // Pause on hover
+        const announcementWrap = document.getElementById('announcement-wrap');
+        if (announcementWrap) {
+            announcementWrap.addEventListener('mouseenter', () => {
+                track.style.animationPlayState = 'paused';
+            });
+            announcementWrap.addEventListener('mouseleave', () => {
+                track.style.animationPlayState = 'running';
+            });
+        }
     });
 
     // --- Live updates without full page reload (AJAX polling) ---
     (function() {
-        const POLL_MS = 5000;
+        const POLL_MS = 10000; // 10 seconds
         let lastData = null;
 
         function formatUpdatedAt(ts) {
@@ -1102,84 +1455,60 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             } catch(e) { return ts || ''; }
         }
 
-        function buildDoctorCard(doc) {
+        function buildDoctorCard(doc, isNoClinic) {
             const card = document.createElement('div');
             card.className = 'doctor-card';
-            const name = document.createElement('div');
-            name.className = 'doctor-name';
-            const icon = document.createElement('i'); icon.className = 'doctor-icon bi bi-person-fill'; icon.setAttribute('aria-hidden','true');
-            name.appendChild(icon);
-            const text = document.createElement('span'); text.textContent = doc.name || '';
-            name.appendChild(text);
-            card.appendChild(name);
-
-            const status = document.createElement('span');
-            const st = (doc.status || '').toLowerCase();
-            let label = 'No Clinic', badge = 'status-noclinic', iconCls = 'bi-x-circle-fill';
-            if (st.indexOf('leave') !== -1) { label = 'On Leave'; badge = 'status-onleave'; iconCls = 'bi-clock-history'; }
-            else if (st.indexOf('schedule') !== -1 || st.indexOf('available') !== -1) { label = 'On Schedule'; badge = 'status-onschedule'; iconCls = 'bi-calendar-check'; }
-            status.className = 'status-badge ' + badge;
-            status.innerHTML = '<i class="bi ' + iconCls + '" aria-hidden="true" style="margin-right:6px"></i> ' + label;
-            card.appendChild(status);
-
-            // helper to parse common DB time formats robustly
-            function parsePossibleTime(s) {
-                if (!s) return null;
-                s = String(s).trim();
-                if (!s || s.indexOf('0000') === 0) return null; // invalid zero-date
-
-                // HH:MM or HH:MM:SS
-                const hm = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
-                if (hm) {
-                    const h = parseInt(hm[1],10), m = parseInt(hm[2],10), sec = parseInt(hm[3]||'0',10);
-                    const d = new Date(); d.setHours(h, m, sec, 0); return d;
+            
+            const nameRow = document.createElement('div');
+            nameRow.className = 'doctor-name-row';
+            
+            const nameLeft = document.createElement('div');
+            nameLeft.className = 'doctor-name-left';
+            
+            const icon = document.createElement('i'); 
+            icon.className = 'doctor-icon bi bi-person-fill';
+            const text = document.createElement('span'); 
+            text.textContent = doc.name || '';
+            
+            nameLeft.appendChild(icon);
+            nameLeft.appendChild(text);
+            nameRow.appendChild(nameLeft);
+            
+            // Add resume date on the right if exists and not No Clinic
+            if (!isNoClinic && doc.resume_date) {
+                const resumeRight = document.createElement('div');
+                resumeRight.className = 'resume-date-right';
+                try {
+                    const d = new Date(doc.resume_date);
+                    resumeRight.textContent = d.toLocaleDateString('en-US', {year:'numeric', month:'short', day:'2-digit'});
+                } catch(e) {
+                    resumeRight.textContent = doc.resume_date;
                 }
-
-                // common DB format YYYY-MM-DD HH:MM:SS -> convert to ISO
-                const isoLike = s.replace(' ', 'T');
-                let d = new Date(isoLike);
-                if (!isNaN(d)) return d;
-
-                // fallback to Date parsing
-                d = new Date(s);
-                if (!isNaN(d)) return d;
-
-                return null;
+                nameRow.appendChild(resumeRight);
             }
+            
+            card.appendChild(nameRow);
 
-            function formatTimeStr(s) {
-                const d = parsePossibleTime(s);
-                if (!d) return null;
-                try { return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); } catch(e) { return null; }
-            }
+            const specialization = document.createElement('div');
+            specialization.className = 'doctor-specialization';
+            specialization.textContent = doc.department || 'General';
+            card.appendChild(specialization);
 
-            const note = document.createElement('div'); note.className = 'status-note';
-            if (label === 'On Schedule') {
-                const start = formatTimeStr(doc.appt_start);
-                const end = formatTimeStr(doc.appt_end);
-                if (start && end) {
-                    note.innerHTML = '<span>Appointment:</span> <span class="muted">' + start + ' - ' + end + '</span>';
-                } else if (start) {
-                    note.innerHTML = '<span>Appointment from</span> <span class="muted">' + start + '</span>';
-                } else {
-                    note.innerHTML = '<span>On Schedule</span> <span class="muted">(no time set)</span>';
-                }
-            } else if (label === 'No Clinic') {
-                note.textContent = 'No Clinic';
-            } else if (label === 'On Leave') {
+            const note = document.createElement('div'); 
+            note.className = 'status-note';
+            
+            if (!isNoClinic) {
                 if (doc.remarks) {
                     note.innerHTML = '<span>Remarks:</span> <span class="muted">' + doc.remarks + '</span>';
-                }
-                if (doc.resume_date) {
-                    const res = document.createElement('div'); res.className = 'resume-info'; res.innerHTML = '<i class="bi bi-calendar-event"></i>Resumes: ' + formatUpdatedAt(doc.resume_date); note.appendChild(res);
+                    card.appendChild(note);
                 }
             }
-            card.appendChild(note);
             return card;
         }
 
         function updateBoard(data) {
             if (!data) return;
+            
             // Announcement
             const aw = document.getElementById('announcement-wrap');
             if (!data.announcement || !data.announcement.text || data.announcement.text.trim() === '') {
@@ -1189,53 +1518,127 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                     aw.style.display = 'flex';
                     aw.style.background = data.announcement.bg_color || '';
                     aw.style.color = data.announcement.text_color || '';
-                    const span = aw.querySelector('.marquee-content');
-                    if (span) {
-                        span.textContent = data.announcement.text || '';
-                        span.style.fontSize = (data.announcement.font_size || 32) + 'px';
-                        span.dataset.speed = data.announcement.speed || 14;
-                    }
+                    
+                    const items = aw.querySelectorAll('.marquee-item');
+                    items.forEach(item => {
+                        item.textContent = data.announcement.text || '';
+                        item.style.fontSize = (data.announcement.font_size || 32) + 'px';
+                        item.dataset.speed = data.announcement.speed || 14;
+                    });
+                    
                     const up = document.getElementById('announcement-updated');
                     if (up) up.textContent = data.announcement.updated_at ? formatUpdatedAt(data.announcement.updated_at) : '';
-                    // restart marquee by triggering resize
-                    window.dispatchEvent(new Event('resize'));
+                    
+                    // Restart marquee animation with infinite scroll
+                    const track = aw.querySelector('.marquee-track');
+                    if (track) {
+                        const items = aw.querySelectorAll('.marquee-item');
+                        if (items.length > 0) {
+                            const speed = parseFloat(items[0].dataset.speed) || 14;
+                            
+                            // Duplicate content for seamless loop
+                            const firstTwo = Array.from(items).slice(0, 2);
+                            const originalHTML = firstTwo.map(item => item.outerHTML).join('');
+                            track.innerHTML = originalHTML + originalHTML;
+                            
+                            // Remove old animation
+                            track.style.animation = 'none';
+                            // Trigger reflow
+                            void track.offsetHeight;
+                            // Re-apply animation
+                            track.style.animation = `scrollLeftInfinite ${speed}s linear infinite`;
+                        }
+                    }
                 }
             }
 
-            // Status columns (two columns across all doctors)
-            const wrapper = document.querySelector('.three-columns');
-            if (!wrapper) return;
+            // Board update
+            const board = document.querySelector('.main-board');
+            if (!board) return;
 
-            // If identical data, skip repaint for performance
+            // If identical data, skip repaint
             try { if (JSON.stringify(data) === JSON.stringify(lastData)) return; } catch(e) {}
             lastData = data;
 
-            // group flat doctors array (exclude "On Schedule" entries)
+            // Group doctors (exclude "On Schedule")
             const groups = { 'no medical': [], 'on leave': [] };
             (data.doctors || []).forEach(d => {
                 const st = (d.status || '').toLowerCase();
-                if (st === '' || st.indexOf('no medical') !== -1 || st.indexOf('no clinic') !== -1) groups['no medical'].push(d);
-                else if (st.indexOf('leave') !== -1) groups['on leave'].push(d);
-                else if (st.indexOf('schedule') !== -1 || st.indexOf('available') !== -1) {
-                    // skip on-schedule entries
-                } else groups['no medical'].push(d);
+                if (st === '' || st.indexOf('no medical') !== -1 || st.indexOf('no clinic') !== -1) {
+                    groups['no medical'].push(d);
+                } else if (st.indexOf('leave') !== -1) {
+                    groups['on leave'].push(d);
+                } else if (st.indexOf('schedule') !== -1 || st.indexOf('available') !== -1) {
+                    // skip
+                } else {
+                    groups['no medical'].push(d);
+                }
             });
 
-            // rebuild with two side-by-side columns
-            wrapper.innerHTML = '';
-            const order = [['no medical','No Clinic'], ['on leave','On Leave']];
-            order.forEach(([key,label]) => {
-                const col = document.createElement('div'); col.className = 'status-col'; col.setAttribute('data-status', key);
-                const hdr = document.createElement('div'); hdr.className = 'col-header'; hdr.innerHTML = '<span>' + label + '</span> <span class="col-count">(' + (groups[key]||[]).length + ')</span>';
-                const list = document.createElement('div'); list.className = 'col-list';
-                (groups[key] || []).forEach(doc => {
-                    const card = buildDoctorCard(doc);
-                    const deptTag = document.createElement('small'); deptTag.className = 'dept-tag'; deptTag.style.marginLeft = '8px'; deptTag.style.opacity = '0.8'; deptTag.style.fontWeight = '600'; deptTag.textContent = '(' + (doc.department || '') + ')';
-                    const name = card.querySelector('.doctor-name'); if (name) name.appendChild(deptTag);
-                    list.appendChild(card);
-                });
-                col.appendChild(hdr); col.appendChild(list); wrapper.appendChild(col);
-            });
+            // Update columns
+            const cols = board.querySelectorAll('.status-col');
+            
+            // Update No Clinic column
+            const noClinicCol = cols[0];
+            if (noClinicCol) {
+                const count = noClinicCol.querySelector('.col-count');
+                if (count) count.textContent = '(' + groups['no medical'].length + ')';
+                
+                const list = noClinicCol.querySelector('.col-list');
+                if (list) {
+                    list.innerHTML = '';
+                    groups['no medical'].forEach(doc => {
+                        list.appendChild(buildDoctorCard(doc, true));
+                    });
+                }
+            }
+
+            // Update On Leave column
+            const onLeaveCol = cols[1];
+            if (onLeaveCol) {
+                // Update header with Resumes label
+                let headerRight = onLeaveCol.querySelector('.col-header-right');
+                if (!headerRight) {
+                    headerRight = document.createElement('div');
+                    headerRight.className = 'col-header-right';
+                    const resumesLabel = document.createElement('div');
+                    resumesLabel.className = 'resumes-label';
+                    resumesLabel.innerHTML = '<i class="bi bi-calendar-check"></i><span>Resumes</span>';
+                    headerRight.appendChild(resumesLabel);
+                    const header = onLeaveCol.querySelector('.col-header');
+                    if (header) header.appendChild(headerRight);
+                }
+                
+                const count = onLeaveCol.querySelector('.col-count');
+                if (count) count.textContent = '(' + groups['on leave'].length + ')';
+                
+                const list = onLeaveCol.querySelector('.col-list');
+                if (list) {
+                    list.innerHTML = '';
+                    
+                    // Separate doctors with and without resume dates
+                    const onLeaveOnly = [];
+                    const withResumeDates = [];
+                    
+                    groups['on leave'].forEach(doc => {
+                        if (doc.resume_date) {
+                            withResumeDates.push(doc);
+                        } else {
+                            onLeaveOnly.push(doc);
+                        }
+                    });
+                    
+                    // Add doctors on leave without resume dates first
+                    onLeaveOnly.forEach(doc => {
+                        list.appendChild(buildDoctorCard(doc, false));
+                    });
+                    
+                    // Add doctors with resume dates (no separate category wrapper)
+                    withResumeDates.forEach(doc => {
+                        list.appendChild(buildDoctorCard(doc, false));
+                    });
+                }
+            }
         }
 
         async function fetchLoop() {
@@ -1244,7 +1647,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 if (!res.ok) return;
                 const data = await res.json();
                 updateBoard(data);
-            } catch (e) { console.warn('Live update failed', e); }
+            } catch (e) { 
+                console.warn('Live update failed', e); 
+            }
         }
 
         // Initial fetch and periodic polling
@@ -1252,3 +1657,5 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
         setInterval(fetchLoop, POLL_MS);
     })();
 </script>
+</body>
+</html>
