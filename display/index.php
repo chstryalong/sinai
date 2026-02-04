@@ -374,22 +374,28 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
         }
 
         .doctor-name {
-            font-size: 28px;
+            font-size: 18px;
             font-weight: 700;
             color: var(--primary-blue);
             margin-bottom: 4px;
             display: flex;
             align-items: center;
             gap: 5px;
+            line-height: 1.3;
+        }
+
+        .doctor-name span {
+            color: var(--primary-blue);
         }
 
         .doctor-icon {
-            font-size: 20px;
+            font-size: 16px;
             flex-shrink: 0;
+            color: var(--primary-blue);
         }
 
         .doctor-specialization {
-            font-size: 14px;
+            font-size: 12px;
             color: #444;
             font-weight: 600;
             margin-bottom: 6px;
@@ -410,10 +416,19 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             gap: 5px;
             flex: 1;
             min-width: 0;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--primary-blue);
+        }
+
+        .doctor-name-left span {
+            color: var(--primary-blue);
+            font-size: 18px;
+            font-weight: 700;
         }
 
         .resume-date-right {
-            font-size: 18px;
+            font-size: 11px;
             color: var(--primary-blue);
             font-weight: 600;
             white-space: nowrap;
@@ -548,7 +563,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             }
 
             .doctor-name {
-                font-size: 18px;
+                font-size: 13px;
             }
 
             .status-badge {
@@ -587,7 +602,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             }
 
             .doctor-name {
-                font-size: 18px;
+                font-size: 14px;
             }
 
             .doctor-specialization {
@@ -663,12 +678,24 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             }
 
             .doctor-name {
-                font-size: 14px;
+                font-size: 16px;
                 margin-bottom: 4px;
             }
 
+            .doctor-name span {
+                font-size: 16px;
+            }
+
             .doctor-icon {
-                font-size: 13px;
+                font-size: 15px;
+            }
+
+            .doctor-name-left {
+                font-size: 16px;
+            }
+
+            .doctor-name-left span {
+                font-size: 16px;
             }
 
             .doctor-specialization {
@@ -780,12 +807,24 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             }
 
             .doctor-name {
-                font-size: 13px;
+                font-size: 15px;
                 margin-bottom: 3px;
             }
 
+            .doctor-name span {
+                font-size: 15px;
+            }
+
             .doctor-icon {
-                font-size: 12px;
+                font-size: 14px;
+            }
+
+            .doctor-name-left {
+                font-size: 15px;
+            }
+
+            .doctor-name-left span {
+                font-size: 15px;
             }
 
             .doctor-specialization {
@@ -914,13 +953,25 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             }
 
             .doctor-name {
-                font-size: 12px;
+                font-size: 14px;
                 margin-bottom: 3px;
                 gap: 4px;
             }
 
+            .doctor-name span {
+                font-size: 14px;
+            }
+
             .doctor-icon {
-                font-size: 11px;
+                font-size: 13px;
+            }
+
+            .doctor-name-left {
+                font-size: 14px;
+            }
+
+            .doctor-name-left span {
+                font-size: 14px;
             }
 
             .doctor-specialization {
@@ -1056,13 +1107,25 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             }
 
             .doctor-name {
-                font-size: 11px;
+                font-size: 13px;
                 margin-bottom: 2px;
                 gap: 3px;
             }
 
+            .doctor-name span {
+                font-size: 13px;
+            }
+
             .doctor-icon {
-                font-size: 10px;
+                font-size: 12px;
+            }
+
+            .doctor-name-left {
+                font-size: 13px;
+            }
+
+            .doctor-name-left span {
+                font-size: 13px;
             }
 
             .doctor-specialization {
@@ -1164,7 +1227,19 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             }
 
             .doctor-name {
-                font-size: 10px;
+                font-size: 12px;
+            }
+
+            .doctor-name span {
+                font-size: 12px;
+            }
+
+            .doctor-name-left {
+                font-size: 12px;
+            }
+
+            .doctor-name-left span {
+                font-size: 12px;
             }
 
             .doctor-specialization {
@@ -1459,50 +1534,66 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             const card = document.createElement('div');
             card.className = 'doctor-card';
             
-            const nameRow = document.createElement('div');
-            nameRow.className = 'doctor-name-row';
-            
-            const nameLeft = document.createElement('div');
-            nameLeft.className = 'doctor-name-left';
-            
-            const icon = document.createElement('i'); 
-            icon.className = 'doctor-icon bi bi-person-fill';
-            const text = document.createElement('span'); 
-            text.textContent = doc.name || '';
-            
-            nameLeft.appendChild(icon);
-            nameLeft.appendChild(text);
-            nameRow.appendChild(nameLeft);
-            
-            // Add resume date on the right if exists and not No Clinic
-            if (!isNoClinic && doc.resume_date) {
-                const resumeRight = document.createElement('div');
-                resumeRight.className = 'resume-date-right';
-                try {
-                    const d = new Date(doc.resume_date);
-                    resumeRight.textContent = d.toLocaleDateString('en-US', {year:'numeric', month:'short', day:'2-digit'});
-                } catch(e) {
-                    resumeRight.textContent = doc.resume_date;
+            if (isNoClinic) {
+                // No Clinic cards use simple doctor-name structure
+                const name = document.createElement('div');
+                name.className = 'doctor-name';
+                
+                const icon = document.createElement('i'); 
+                icon.className = 'doctor-icon bi bi-person-fill';
+                const text = document.createElement('span'); 
+                text.textContent = doc.name || '';
+                text.style.color = 'var(--primary-blue)';
+                
+                name.appendChild(icon);
+                name.appendChild(text);
+                card.appendChild(name);
+            } else {
+                // On Leave cards use doctor-name-row structure
+                const nameRow = document.createElement('div');
+                nameRow.className = 'doctor-name-row';
+                
+                const nameLeft = document.createElement('div');
+                nameLeft.className = 'doctor-name-left';
+                
+                const icon = document.createElement('i'); 
+                icon.className = 'doctor-icon bi bi-person-fill';
+                const text = document.createElement('span'); 
+                text.textContent = doc.name || '';
+                text.style.color = 'var(--primary-blue)';
+                
+                nameLeft.appendChild(icon);
+                nameLeft.appendChild(text);
+                nameRow.appendChild(nameLeft);
+                
+                // Add resume date on the right if exists
+                if (doc.resume_date) {
+                    const resumeRight = document.createElement('div');
+                    resumeRight.className = 'resume-date-right';
+                    try {
+                        const d = new Date(doc.resume_date);
+                        resumeRight.textContent = d.toLocaleDateString('en-US', {year:'numeric', month:'short', day:'2-digit'});
+                    } catch(e) {
+                        resumeRight.textContent = doc.resume_date;
+                    }
+                    nameRow.appendChild(resumeRight);
                 }
-                nameRow.appendChild(resumeRight);
+                
+                card.appendChild(nameRow);
             }
-            
-            card.appendChild(nameRow);
 
             const specialization = document.createElement('div');
             specialization.className = 'doctor-specialization';
             specialization.textContent = doc.department || 'General';
             card.appendChild(specialization);
 
-            const note = document.createElement('div'); 
-            note.className = 'status-note';
-            
-            if (!isNoClinic) {
-                if (doc.remarks) {
-                    note.innerHTML = '<span>Remarks:</span> <span class="muted">' + doc.remarks + '</span>';
-                    card.appendChild(note);
-                }
+            if (!isNoClinic && doc.remarks) {
+                const note = document.createElement('div'); 
+                note.className = 'status-note';
+                note.innerHTML = '<span>Remarks:</span> <span class="muted">' + doc.remarks + '</span>';
+                card.appendChild(note);
             }
+            
             return card;
         }
 
