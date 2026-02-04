@@ -18,7 +18,7 @@ while ($row = $result->fetch_assoc()) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sinai MDI Hospital - Doctor Availability</title>
+    <title>New Sinai MDI Hospital - Doctor Availability</title>
 
     <!-- Auto refresh every 10 seconds -->
     <meta http-equiv="refresh" content="10">
@@ -602,7 +602,7 @@ while ($row = $result->fetch_assoc()) {
     <div class="header-content">
         <div class="header-title">
             <i class="bi bi-hospital"></i>
-            Sinai MDI Hospital
+            New Sinai MDI Hospital
         </div>
         <div class="header-subtitle">Doctor Availability Board</div>
     </div>
