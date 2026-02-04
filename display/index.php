@@ -275,10 +275,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             min-height: 0;
         }
 
-        /* Three-column board (On Schedule / No Clinic / On Leave) */
+        /* Two-column board (No Clinic / On Leave) */
         .three-columns {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(2, 1fr);
             gap: 12px;
             width: 100%;
             height: 100%;
@@ -809,25 +809,26 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
 
 <div class="container">
     <?php
-        // Pre-group doctors into the three status columns for server-side initial render
-        $groups = ['on schedule' => [], 'on leave' => [], 'no medical' => []];
-        foreach ($all_doctors as $d) {
-            $low = strtolower(trim($d['status'] ?? ''));
-            if ($low === '' || strpos($low, 'no medical') !== false || strpos($low, 'no clinic') !== false) {
-                $key = 'no medical';
-            } elseif (strpos($low, 'leave') !== false) {
-                $key = 'on leave';
-            } elseif (strpos($low, 'schedule') !== false || strpos($low, 'available') !== false) {
-                $key = 'on schedule';
-            } else {
-                $key = 'no medical';
+        // Pre-group doctors into the two status columns for server-side initial render
+            $groups = ['no medical' => [], 'on leave' => []];
+            foreach ($all_doctors as $d) {
+                $low = strtolower(trim($d['status'] ?? ''));
+                if ($low === '' || strpos($low, 'no medical') !== false || strpos($low, 'no clinic') !== false) {
+                    $key = 'no medical';
+                } elseif (strpos($low, 'leave') !== false) {
+                    $key = 'on leave';
+                } elseif (strpos($low, 'schedule') !== false || strpos($low, 'available') !== false) {
+                    // Skip "On Schedule" entries entirely (do not display them)
+                    continue;
+                } else {
+                    $key = 'no medical';
+                }
+                $groups[$key][] = $d;
             }
-            $groups[$key][] = $d;
-        }
     ?>
 
     <div class="three-columns departments-wrapper" role="list">
-        <?php foreach (['on schedule' => 'On Schedule Today', 'no medical' => 'No Clinic', 'on leave' => 'On Leave'] as $k => $label): ?>
+        <?php foreach (['no medical' => 'No Clinic', 'on leave' => 'On Leave'] as $k => $label): ?>
             <div class="status-col" data-status="<?= htmlspecialchars($k) ?>" role="group" aria-labelledby="<?= 'col-'.md5($k) ?>">
                 <div class="col-header" id="<?= 'col-'.md5($k) ?>"><span><?= htmlspecialchars($label) ?></span> <span class="col-count">(<?= count($groups[$k]) ?>)</span></div>
                 <div class="col-list" role="list">
@@ -853,21 +854,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                             <span class="status-badge <?= $badge_class ?>"><i class="bi <?= $icon ?>" aria-hidden="true" style="margin-right:6px"></i> <?= htmlspecialchars($status_label) ?></span>
 
                             <div class="status-note">
-                                <?php if ($k == 'on schedule'): ?>
-                                    <?php if (!empty($doctor['appt_start']) && !empty($doctor['appt_end'])): ?>
-                                        <span>Appointment:</span>
-                                        <span class="muted"><?= htmlspecialchars(date("h:i A", strtotime($doctor['appt_start'])) . ' - ' . date("h:i A", strtotime($doctor['appt_end']))) ?></span>
-                                    <?php elseif (!empty($doctor['appt_start'])): ?>
-                                        <span>Appointment from</span>
-                                        <span class="muted"><?= htmlspecialchars(date("h:i A", strtotime($doctor['appt_start']))) ?></span>
-                                    <?php elseif (!empty($doctor['appt_end'])): ?>
-                                        <span>Appointment until</span>
-                                        <span class="muted"><?= htmlspecialchars(date("h:i A", strtotime($doctor['appt_end']))) ?></span>
-                                    <?php else: ?>
-                                        <span>On Schedule</span>
-                                        <span class="muted">(no time set)</span>
-                                    <?php endif; ?>
-                                <?php elseif ($k == 'no medical'): ?>
+                                <?php if ($k == 'no medical'): ?>
                                     <span>No Clinic</span>
                                 <?php elseif ($k == 'on leave'): ?>
                                     <?php if (!empty($doctor['remarks'])): ?>
@@ -1088,7 +1075,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 }
             }
 
-            // Status columns (three columns across all doctors)
+            // Status columns (two columns across all doctors)
             const wrapper = document.querySelector('.three-columns');
             if (!wrapper) return;
 
@@ -1096,19 +1083,20 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             try { if (JSON.stringify(data) === JSON.stringify(lastData)) return; } catch(e) {}
             lastData = data;
 
-            // group flat doctors array
-            const groups = { 'on schedule': [], 'on leave': [], 'no medical': [] };
+            // group flat doctors array (exclude "On Schedule" entries)
+            const groups = { 'no medical': [], 'on leave': [] };
             (data.doctors || []).forEach(d => {
                 const st = (d.status || '').toLowerCase();
                 if (st === '' || st.indexOf('no medical') !== -1 || st.indexOf('no clinic') !== -1) groups['no medical'].push(d);
                 else if (st.indexOf('leave') !== -1) groups['on leave'].push(d);
-                else if (st.indexOf('schedule') !== -1 || st.indexOf('available') !== -1) groups['on schedule'].push(d);
-                else groups['no medical'].push(d);
+                else if (st.indexOf('schedule') !== -1 || st.indexOf('available') !== -1) {
+                    // skip on-schedule entries
+                } else groups['no medical'].push(d);
             });
 
-            // rebuild with three columns
+            // rebuild with two columns
             wrapper.innerHTML = '';
-            const order = [['on schedule','On Schedule Today'], ['no medical','No Clinic'], ['on leave','On Leave']];
+            const order = [['no medical','No Clinic'], ['on leave','On Leave']];
             order.forEach(([key,label]) => {
                 const col = document.createElement('div'); col.className = 'status-col'; col.setAttribute('data-status', key);
                 const hdr = document.createElement('div'); hdr.className = 'col-header'; hdr.innerHTML = '<span>' + label + '</span> <span class="col-count">(' + (groups[key]||[]).length + ')</span>';
