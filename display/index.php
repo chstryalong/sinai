@@ -160,13 +160,27 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
         .announcement::before, .announcement::after { content: ''; position: absolute; top:0; bottom:0; width:6%; pointer-events: none; z-index:2; }
         .announcement::before { left:0; background: linear-gradient(to right, var(--fade-bg), transparent); }
         .announcement::after { right:0; background: linear-gradient(to left, var(--fade-bg), transparent); }
-        .announcement .marquee { display: block; white-space: nowrap; overflow: hidden; }
-        .announcement .marquee span {
-            display: inline-block;
-            font-weight: 800;
-            white-space: nowrap;
-            will-change: transform;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.12);
+        .announcement { position: relative; }
+        /* Marquee track spans the whole viewport so the announcement moves across the whole screen */
+        .announcement .marquee { position: relative; height: 40px; overflow: hidden; }
+        .announcement .marquee .marquee-track {
+            position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
+            width: 100vw; display: flex; align-items: center; z-index: 1; pointer-events: none;
+        }
+        .announcement .marquee .marquee-item {
+            display: inline-block; font-weight: 800; white-space: nowrap; will-change: transform; text-shadow: 0 1px 2px rgba(0,0,0,0.12);
+        }
+
+        /* Visual effect when text passes behind the megaphone (balanced with design) */
+        .announcement .marquee .marquee-item.passing {
+            /* Keep text blue to match the brand and remove color transition */
+            color: var(--primary-blue) !important;
+            /* subtle bluish glow for balance */
+            text-shadow: 0 4px 10px rgba(0,82,204,0.08) !important;
+            /* remove scale/bounce to keep it static */
+            transform: none !important;
+            /* only animate text-shadow (no color or transform changes) */
+            transition: text-shadow 160ms linear;
         }
         /* Fallback keyframes (keeps movement for very old browsers) */
         @keyframes marquee {
@@ -275,14 +289,28 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             min-height: 0;
         }
 
-        /* Two-column board (No Clinic / On Leave) */
+        /* Two-column side-by-side board (No Clinic / On Leave) */
         .three-columns {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 12px;
+            gap: 0; /* no gap between columns */
             width: 100%;
             height: 100%;
             min-height: 0;
+        }
+
+        /* Draw a vertical separator between the two adjacent status columns */
+        .status-col + .status-col {
+            border-left: 2px solid rgba(0,0,0,0.06);
+        }
+
+        /* Ensure columns have inner spacing so content doesn't touch the separator */
+        .status-col { padding: 12px 18px; }
+
+        /* Mobile: stack vertically and use a horizontal separator instead */
+        @media (max-width: 900px) {
+            .three-columns { grid-template-columns: 1fr; gap: 12px; }
+            .status-col + .status-col { border-left: none; border-top: 2px solid rgba(0,0,0,0.06); }
         }
         .status-col {
             display: flex;
@@ -795,10 +823,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
     $text = $announcement['text'];
 ?>
     <div id="announcement-wrap" class="announcement-wrap" style="background: <?= htmlspecialchars($bg_color) ?>; color: <?= htmlspecialchars($text_color) ?>;">
-        <div style="display:flex; align-items:center; gap:12px; width:100%;">
-            <i class="bi bi-megaphone-fill" style="font-size:22px; color: <?= htmlspecialchars($text_color) ?>;"></i>
+        <div style="display:flex; align-items:center; gap:8px; width:100%;">
+            <i id="announcement-megaphone" class="bi bi-megaphone-fill" style="font-size:22px; color: <?= htmlspecialchars($text_color) ?>;"></i>
             <div class="announcement" id="announcement" style="flex:1; --fade-bg: <?= htmlspecialchars($bg_color) ?>;">
-                <div class="marquee"><span class="marquee-content" data-speed="<?= $speed ?>" style="font-size: <?= $font_size ?>px; color: <?= htmlspecialchars($text_color) ?>;"><?= htmlspecialchars($text) ?></span></div>
+                <div class="marquee"><div class="marquee-track"><span class="marquee-content" data-speed="<?= $speed ?>" style="font-size: <?= $font_size ?>px; color: <?= htmlspecialchars($text_color) ?>;"><?= htmlspecialchars($text) ?></span></div></div>
             </div>
             <div id="announcement-updated" style="min-width:120px; text-align:right; font-size:12px; opacity:0.9;">
                 <?= !empty($announcement['updated_at']) ? htmlspecialchars(date('M d, Y H:i', strtotime($announcement['updated_at']))) : '' ?>
@@ -828,49 +856,75 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
     ?>
 
     <div class="three-columns departments-wrapper" role="list">
-        <?php foreach (['no medical' => 'No Clinic', 'on leave' => 'On Leave'] as $k => $label): ?>
-            <div class="status-col" data-status="<?= htmlspecialchars($k) ?>" role="group" aria-labelledby="<?= 'col-'.md5($k) ?>">
-                <div class="col-header" id="<?= 'col-'.md5($k) ?>"><span><?= htmlspecialchars($label) ?></span> <span class="col-count">(<?= count($groups[$k]) ?>)</span></div>
-                <div class="col-list" role="list">
-                    <?php foreach ($groups[$k] as $doctor): ?>
-                        <div class="doctor-card" role="listitem">
-                            <div class="doctor-name">
-                                <i class="doctor-icon bi bi-person-fill" aria-hidden="true"></i>
-                                <?= htmlspecialchars($doctor['name']) ?>
-                                <small class="dept-tag" style="margin-left:8px; opacity:0.8; font-weight:600;">(<?= htmlspecialchars($doctor['department'] ?? '') ?>)</small>
-                            </div>
-
-                            <?php
-                                $low = strtolower(trim($doctor['status'] ?? ''));
-                                if ($low === '' || strpos($low, 'no medical') !== false || strpos($low, 'no clinic') !== false) {
-                                    $badge_class = 'status-noclinic'; $status_label = 'No Clinic'; $icon = 'bi-x-circle-fill';
-                                } elseif (strpos($low, 'leave') !== false) {
-                                    $badge_class = 'status-onleave'; $status_label = 'On Leave'; $icon = 'bi-clock-history';
-                                } else {
-                                    $badge_class = 'status-onschedule'; $status_label = 'On Schedule'; $icon = 'bi-calendar-check';
-                                }
-                            ?>
-
-                            <span class="status-badge <?= $badge_class ?>"><i class="bi <?= $icon ?>" aria-hidden="true" style="margin-right:6px"></i> <?= htmlspecialchars($status_label) ?></span>
-
-                            <div class="status-note">
-                                <?php if ($k == 'no medical'): ?>
-                                    <span>No Clinic</span>
-                                <?php elseif ($k == 'on leave'): ?>
-                                    <?php if (!empty($doctor['remarks'])): ?>
-                                        <span>Remarks:</span>
-                                        <span class="muted"><?= htmlspecialchars($doctor['remarks']) ?></span>
-                                    <?php endif; ?>
-                                    <?php if (!empty($doctor['resume_date'])): ?>
-                                        <div class="resume-info"><i class="bi bi-calendar-event"></i>Resumes: <?= date("M d, Y", strtotime($doctor['resume_date'])) ?></div>
-                                    <?php endif; ?>
-                                <?php endif; ?>
-                            </div>
+        <div class="status-col" data-status="no medical" role="group" aria-labelledby="<?= 'col-'.md5('no medical') ?>">
+            <div class="col-header" id="<?= 'col-'.md5('no medical') ?>"><span>No Clinic</span> <span class="col-count">(<?= count($groups['no medical']) ?>)</span></div>
+            <div class="col-list" role="list">
+                <?php foreach ($groups['no medical'] as $doctor): ?>
+                    <div class="doctor-card" role="listitem">
+                        <div class="doctor-name">
+                            <i class="doctor-icon bi bi-person-fill" aria-hidden="true"></i>
+                            <?= htmlspecialchars($doctor['name']) ?>
+                            <small class="dept-tag" style="margin-left:8px; opacity:0.8; font-weight:600;">(<?= htmlspecialchars($doctor['department'] ?? '') ?>)</small>
                         </div>
-                    <?php endforeach; ?>
-                </div>
+
+                        <?php
+                            $low = strtolower(trim($doctor['status'] ?? ''));
+                            if ($low === '' || strpos($low, 'no medical') !== false || strpos($low, 'no clinic') !== false) {
+                                $badge_class = 'status-noclinic'; $status_label = 'No Clinic'; $icon = 'bi-x-circle-fill';
+                            } elseif (strpos($low, 'leave') !== false) {
+                                $badge_class = 'status-onleave'; $status_label = 'On Leave'; $icon = 'bi-clock-history';
+                            } else {
+                                $badge_class = 'status-onschedule'; $status_label = 'On Schedule'; $icon = 'bi-calendar-check';
+                            }
+                        ?>
+
+                        <span class="status-badge <?= $badge_class ?>"><i class="bi <?= $icon ?>" aria-hidden="true" style="margin-right:6px"></i> <?= htmlspecialchars($status_label) ?></span>
+
+                        <div class="status-note">
+                            <span>No Clinic</span>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
             </div>
-        <?php endforeach; ?>
+        </div>
+
+        <div class="status-col" data-status="on leave" role="group" aria-labelledby="<?= 'col-'.md5('on leave') ?>">
+            <div class="col-header" id="<?= 'col-'.md5('on leave') ?>"><span>On Leave</span> <span class="col-count">(<?= count($groups['on leave']) ?>)</span></div>
+            <div class="col-list" role="list">
+                <?php foreach ($groups['on leave'] as $doctor): ?>
+                    <div class="doctor-card" role="listitem">
+                        <div class="doctor-name">
+                            <i class="doctor-icon bi bi-person-fill" aria-hidden="true"></i>
+                            <?= htmlspecialchars($doctor['name']) ?>
+                            <small class="dept-tag" style="margin-left:8px; opacity:0.8; font-weight:600;">(<?= htmlspecialchars($doctor['department'] ?? '') ?>)</small>
+                        </div>
+
+                        <?php
+                            $low = strtolower(trim($doctor['status'] ?? ''));
+                            if ($low === '' || strpos($low, 'no medical') !== false || strpos($low, 'no clinic') !== false) {
+                                $badge_class = 'status-noclinic'; $status_label = 'No Clinic'; $icon = 'bi-x-circle-fill';
+                            } elseif (strpos($low, 'leave') !== false) {
+                                $badge_class = 'status-onleave'; $status_label = 'On Leave'; $icon = 'bi-clock-history';
+                            } else {
+                                $badge_class = 'status-onschedule'; $status_label = 'On Schedule'; $icon = 'bi-calendar-check';
+                            }
+                        ?>
+
+                        <span class="status-badge <?= $badge_class ?>"><i class="bi <?= $icon ?>" aria-hidden="true" style="margin-right:6px"></i> <?= htmlspecialchars($status_label) ?></span>
+
+                        <div class="status-note">
+                            <?php if (!empty($doctor['remarks'])): ?>
+                                <span>Remarks:</span>
+                                <span class="muted"><?= htmlspecialchars($doctor['remarks']) ?></span>
+                            <?php endif; ?>
+                            <?php if (!empty($doctor['resume_date'])): ?>
+                                <div class="resume-info"><i class="bi bi-calendar-event"></i>Resumes: <?= date("M d, Y", strtotime($doctor['resume_date'])) ?></div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -906,60 +960,133 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
     // Update time every second
     setInterval(updatePhilippinesTime, 1000);
 
-    // Marquee (improved) — always scrolls smoothly, pauses on hover, restarts on resize
+    // Marquee (improved) — continuous seamless scroll, pauses on hover, restarts on resize
     document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.announcement .marquee').forEach(m => {
             const container = m.closest('.announcement');
-            const span = m.querySelector('.marquee-content');
-            if (!span || !container) return;
+            const original = m.querySelector('.marquee-content');
+            if (!original || !container) return;
 
-            function startAnim() {
-                if (span._anim) span._anim.cancel();
-                span.style.whiteSpace = 'nowrap';
+            // ensure track exists and contains two copies for seamless loop
+            let track = m.querySelector('.marquee-track');
+            track.style.overflow = 'hidden';
+            track.style.display = 'block';
 
-                const contentWidth = span.offsetWidth;
-                const containerWidth = container.offsetWidth;
-                const distance = contentWidth + containerWidth;
-
-                // Speed from admin is seconds for a base pass; scale by distance vs container
-                const baseSpeed = parseFloat(span.dataset.speed) || 14;
-                const duration = Math.max(2000, Math.round(baseSpeed * 1000 * (distance / Math.max(containerWidth, 100))));
-
-                // start just outside right edge
-                span.style.transform = `translateX(${containerWidth}px)`;
-
-                // Web Animations API (smooth and consistent)
-                try {
-                    span._anim = span.animate([
-                        { transform: `translateX(${containerWidth}px)` },
-                        { transform: `translateX(-${contentWidth}px)` }
-                    ], { duration: duration, iterations: Infinity, easing: 'linear' });
-                } catch (e) {
-                    // fallback to CSS animation if WAAPI not available
-                    span.style.transition = `transform ${duration}ms linear`;
-                    let pos = containerWidth;
-                    function cssLoop() {
-                        span.style.transform = `translateX(-${contentWidth}px)`;
-                        setTimeout(() => {
-                            span.style.transition = 'none';
-                            span.style.transform = `translateX(${containerWidth}px)`;
-                            // force reflow
-                            void span.offsetWidth;
-                            span.style.transition = `transform ${duration}ms linear`;
-                            setTimeout(cssLoop, 50);
-                        }, duration);
-                    }
-                    cssLoop();
-                }
+            // create two copies of the content inside an inner flex track (for seamless loop)
+            function buildTrack() {
+                track.innerHTML = '';
+                const c1 = document.createElement('span');
+                c1.className = 'marquee-item';
+                c1.style.whiteSpace = 'nowrap';
+                c1.style.display = 'inline-block';
+                // reduce repeat gap for tighter flow; make adjustable later
+                c1.style.paddingRight = '2.5rem';
+                // preserve admin font size but ensure a minimum for readability
+                const origFont = original.style.fontSize || '';
+                if (!origFont) c1.style.fontSize = '20px';
+                c1.innerHTML = original.innerHTML;
+                const c2 = c1.cloneNode(true);
+                track.appendChild(c1); track.appendChild(c2);
+                return c1;
             }
 
+            let anim = null, item = null;
+
+            function startAnim() {
+                // cancel existing animation
+                if (anim && typeof anim.cancel === 'function') try { anim.cancel(); } catch(e){}
+
+                item = buildTrack();
+                const containerWidth = window.innerWidth || document.documentElement.clientWidth; // use viewport width so it moves across entire screen
+                // ensure track spans viewport
+                track.style.position = 'absolute'; track.style.left = '0'; track.style.right = '0'; track.style.width = containerWidth + 'px';
+
+                // Ensure repeated item covers container width to avoid visible gaps (make infinite seamless)
+                const contentWidth = item.scrollWidth || item.offsetWidth;
+                if (contentWidth < containerWidth) {
+                    const extra = containerWidth - contentWidth + 80; // breathing room
+                    item.style.paddingRight = extra + 'px';
+                }
+                let itemWidth = item.offsetWidth;
+
+                // How long a single full cycle should take (base speed in seconds from admin)
+                const baseSpeed = parseFloat(original.dataset.speed) || 14;
+                // scale by content length relative to container so long texts scroll proportionally
+                const duration = Math.max(2000, Math.round(baseSpeed * 1000 * (itemWidth / Math.max(containerWidth, 100))));
+
+                // Use WAAPI for smoothness where available
+                const trackEl = track;
+
+                // ensure track layout supports full translation: set width to two repeats
+                trackEl.style.display = 'flex';
+                trackEl.style.width = (itemWidth * 2) + 'px';
+                // start at 0 (first copy) so the animation is seamless between the two copies
+                trackEl.style.transform = `translateX(0px)`;
+
+                // duration scaled by item width so speed is consistent
+                const durationAdjusted = Math.max(2000, Math.round(baseSpeed * 1000 * (itemWidth / Math.max(containerWidth, 100))));
+
+                try {
+                    // animate from 0 to -itemWidth (seamless with duplicated content)
+                    anim = trackEl.animate([
+                        { transform: `translateX(0px)` },
+                        { transform: `translateX(-${itemWidth}px)` }
+                    ], { duration: durationAdjusted, iterations: Infinity, easing: 'linear' });
+                    trackEl.style.animation = '';
+                } catch (e) {
+                    // CSS fallback: inject keyframes with unique name
+                    const uid = 'm' + Math.random().toString(36).slice(2,9);
+                    const keyframes = `@keyframes ${uid} { from { transform: translateX(0px); } to { transform: translateX(-${itemWidth}px); } }`;
+                    const style = document.createElement('style'); style.textContent = keyframes; document.head.appendChild(style);
+                    trackEl.style.display = 'flex';
+                    trackEl.style.width = (itemWidth*2) + 'px';
+                    trackEl.style.animation = `${uid} ${durationAdjusted}ms linear infinite`;
+                }
+
+                // Pause/resume handlers
+                container.addEventListener('mouseenter', function() {
+                    if (anim && typeof anim.pause === 'function') anim.pause();
+                    else track.style.animationPlayState = 'paused';
+                });
+                container.addEventListener('mouseleave', function() {
+                    if (anim && typeof anim.play === 'function') anim.play();
+                    else track.style.animationPlayState = 'running';
+                });
+
+                // Monitor overlap with megaphone to create 'through' effect (use viewport coordinates)
+                let rafId = null;
+                const meg = document.getElementById('announcement-megaphone');
+                function monitor() {
+                    if (!meg) return;
+                    const mrect = meg.getBoundingClientRect();
+                    const items = track.querySelectorAll('.marquee-item');
+                    let overlapping = false;
+                    items.forEach(n => {
+                        const r = n.getBoundingClientRect();
+                        const isOverlap = !(r.right < mrect.left || r.left > mrect.right || r.bottom < mrect.top || r.top > mrect.bottom);
+                        n.classList.toggle('passing', !!isOverlap);
+                        if (isOverlap) overlapping = true;
+                    });
+                    // also ensure megaphone highlight toggles
+                    if (meg) {
+                        if (overlapping) meg.classList.add('meg-active'); else meg.classList.remove('meg-active');
+                    }
+                    rafId = requestAnimationFrame(monitor);
+                }
+
+                // stop previous monitor if any
+                if (typeof window._marqueeMonitor === 'number') cancelAnimationFrame(window._marqueeMonitor);
+                window._marqueeMonitor = null;
+                rafId = requestAnimationFrame(monitor);
+                window._marqueeMonitor = rafId;
+            }
+
+            // start immediately
             startAnim();
 
+            // restart on resize to recompute widths
             let resizeTimer;
             window.addEventListener('resize', function() { clearTimeout(resizeTimer); resizeTimer = setTimeout(startAnim, 150); });
-
-            container.addEventListener('mouseenter', function() { if (span._anim) span._anim.pause(); });
-            container.addEventListener('mouseleave', function() { if (span._anim) span._anim.play(); });
         });
     });
 
@@ -1094,7 +1221,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 } else groups['no medical'].push(d);
             });
 
-            // rebuild with two columns
+            // rebuild with two side-by-side columns
             wrapper.innerHTML = '';
             const order = [['no medical','No Clinic'], ['on leave','On Leave']];
             order.forEach(([key,label]) => {
@@ -1103,7 +1230,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 const list = document.createElement('div'); list.className = 'col-list';
                 (groups[key] || []).forEach(doc => {
                     const card = buildDoctorCard(doc);
-                    // show department on card for context
                     const deptTag = document.createElement('small'); deptTag.className = 'dept-tag'; deptTag.style.marginLeft = '8px'; deptTag.style.opacity = '0.8'; deptTag.style.fontWeight = '600'; deptTag.textContent = '(' + (doc.department || '') + ')';
                     const name = card.querySelector('.doctor-name'); if (name) name.appendChild(deptTag);
                     list.appendChild(card);
