@@ -90,8 +90,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             box-shadow: var(--shadow-1);
         }
 
-
-
         /* Status badge polish */
         .status-badge { border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 700; }
         .status-available { background-color: rgba(40,167,69,0.12); color: var(--success); }
@@ -144,7 +142,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             border-bottom: 1px solid rgba(255,255,255,0.06);
         }
 
-        /* Announcement banner (scrolling) */
+        /* Announcement banner (static) */
         .announcement-wrap {
             position: relative;
             z-index: 1100;
@@ -157,63 +155,23 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
         }
         .announcement { 
             position: relative; 
-            overflow: hidden; 
             width: 100%; 
-            height: 40px;
-        }
-        .announcement::before, .announcement::after { 
-            content: ''; 
-            position: absolute; 
-            top:0; 
-            bottom:0; 
-            width:6%; 
-            pointer-events: none; 
-            z-index:2; 
-        }
-        .announcement::before { 
-            left:0; 
-            background: linear-gradient(to right, var(--fade-bg), transparent); 
-        }
-        .announcement::after { 
-            right:0; 
-            background: linear-gradient(to left, var(--fade-bg), transparent); 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 10px 0;
         }
         
-        /* Marquee track - continuous infinite scroll from right to left */
-        .announcement .marquee { 
-            position: relative; 
-            height: 100%; 
-            overflow: hidden; 
-        }
-        .announcement .marquee .marquee-track {
-            position: absolute; 
-            left: 0; 
-            top: 50%; 
-            transform: translateY(-50%);
-            display: inline-flex; 
-            align-items: center; 
-            white-space: nowrap;
-            will-change: transform;
-        }
-        .announcement .marquee .marquee-item {
-            display: inline-block; 
-            font-weight: 800; 
-            white-space: nowrap; 
-            padding-right: 100px;
-        }
-        
-        @keyframes scrollLeftInfinite {
-            0% {
-                transform: translateX(0) translateY(-50%);
-            }
-            100% {
-                transform: translateX(-50%) translateY(-50%);
-            }
+        .announcement .announcement-text {
+            font-weight: 750;
+            line-height: 0.5;
         }
 
         .header-content {
             max-width: 100%;
             margin: 0 auto;
+            position: relative;
         }
 
         .header-title {
@@ -234,18 +192,36 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             border-radius: 6px;
         }
 
-        @media (max-width: 900px) {
-            .header-logo { height: 44px; }
-        }
-
-        @media (max-width: 600px) {
-            .header-logo { height: 36px; }
-            .header-title { font-size: 20px; gap: 8px; }
-        }
-
         .header-subtitle {
             font-size: 12px;
             opacity: 0.9;
+        }
+
+        .update-time {
+            position: absolute;
+            bottom: 8px;
+            right: 20px;
+            font-size: 24px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 8px;
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .update-time i {
+            font-size: 24px;
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         .container {
@@ -326,7 +302,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
         }
 
         .resumes-label {
-            font-size: 14px;
+            font-size: 23px;
             font-weight: 700;
             color: var(--primary-blue);
             display: flex;
@@ -339,8 +315,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
         }
 
         .current-date {
-            font-size: 13px;
-            font-weight: 600;
+            font-size: 18px;
+            font-weight: 750;
             color: var(--primary-blue);
             background: rgba(0,82,204,0.08);
             padding: 4px 10px;
@@ -428,7 +404,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
         }
 
         .resume-date-right {
-            font-size: 11px;
+            font-size: 16px;
             color: var(--primary-blue);
             font-weight: 600;
             white-space: nowrap;
@@ -496,26 +472,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             margin-left: 8px;
         }
 
-        footer {
-            background: linear-gradient(135deg, rgba(0,82,204,0.95) 0%, rgba(30,136,229,0.95) 100%);
-            color: white;
-            text-align: center;
-            padding: 10px;
-            font-size: 12px;
-            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-            flex-shrink: 0;
-            position: relative;
-            z-index: 1;
-            backdrop-filter: blur(3px);
-            -webkit-backdrop-filter: blur(3px);
-        }
-
-        .update-time {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-        }
-
         /* Scrollbar styling */
         .col-list::-webkit-scrollbar {
             width: 4px;
@@ -554,32 +510,19 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                     rgba(0,82,204,0.1) 100%);
                 transform: translateY(-50%);
             }
-        }
-
-        /* Responsive adjustments */
-        @media (max-width: 1024px) {
-            .header-title {
-                font-size: 28px;
+            
+            .update-time {
+                position: static;
+                margin-top: 10px;
+                font-size: 18px;
+                padding: 6px 12px;
+                justify-content: center;
             }
-
-            .doctor-name {
-                font-size: 13px;
-            }
-
-            .status-badge {
-                font-size: 9px;
+            
+            .update-time i {
+                font-size: 18px;
             }
         }
-
-        @media (max-width: 900px) {
-            header {
-                padding: 12px 15px;
-            }
-
-            .header-title {
-                font-size: 24px;
-                gap: 8px;
-            }
 
         /* Tablet and iPad (768px to 1024px) */
         @media (max-width: 1024px) {
@@ -590,6 +533,16 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             .header-subtitle {
                 font-size: 11px;
             }
+            
+            .update-time {
+                font-size: 16px;
+                padding: 6px 14px;
+                bottom: 6px;
+            }
+            
+            .update-time i {
+                font-size: 24px;
+            }
 
             .col-header {
                 font-size: 16px;
@@ -597,7 +550,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             }
 
             .current-date {
-                font-size: 12px;
+                font-size: 18px;
                 padding: 3px 8px;
             }
 
@@ -646,9 +599,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 padding: 8px 12px;
             }
 
-            .announcement .marquee .marquee-item {
+            .announcement .announcement-text {
                 font-size: 18px !important;
-                padding-right: 80px;
             }
 
             .container {
@@ -669,7 +621,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             }
 
             .current-date {
-                font-size: 11px;
+                font-size: 14px;
                 padding: 3px 8px;
             }
 
@@ -731,15 +683,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 padding: 5px 8px;
                 margin-top: 6px;
             }
-
-            footer {
-                padding: 8px;
-                font-size: 11px;
-            }
-
-            .update-time {
-                gap: 4px;
-            }
         }
 
         /* Mobile landscape and portrait (480px to 768px) */
@@ -769,14 +712,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 font-size: 18px !important;
             }
 
-            .announcement .marquee .marquee-item {
+            .announcement .announcement-text {
                 font-size: 16px !important;
-                padding-right: 60px;
-            }
-
-            #announcement-updated {
-                font-size: 10px !important;
-                min-width: 90px;
             }
 
             .container {
@@ -798,7 +735,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             }
 
             .current-date {
-                font-size: 10px;
+                font-size: 12px;
                 padding: 3px 6px;
             }
 
@@ -869,11 +806,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             .status-note .muted {
                 font-size: 10px;
             }
-
-            footer {
-                padding: 7px;
-                font-size: 10px;
-            }
         }
 
         /* Mobile portrait (up to 600px) */
@@ -884,6 +816,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
 
             header {
                 padding: 8px 10px;
+            }
+
+            .header-logo {
+                height: 44px;
             }
 
             .header-title {
@@ -908,14 +844,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 font-size: 16px !important;
             }
 
-            .announcement .marquee .marquee-item {
+            .announcement .announcement-text {
                 font-size: 14px !important;
-                padding-right: 50px;
-            }
-
-            #announcement-updated {
-                font-size: 9px !important;
-                min-width: 80px;
             }
 
             .container {
@@ -938,7 +868,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             }
 
             .current-date {
-                font-size: 9px;
+                font-size: 10px;
                 padding: 2px 6px;
             }
 
@@ -1018,15 +948,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 font-size: 9px;
                 margin-left: 4px;
             }
-
-            footer {
-                padding: 6px;
-                font-size: 9px;
-            }
-
-            .update-time {
-                gap: 3px;
-            }
         }
 
         /* Small mobile (under 400px) */
@@ -1061,14 +982,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 font-size: 14px !important;
             }
 
-            .announcement .marquee .marquee-item {
+            .announcement .announcement-text {
                 font-size: 12px !important;
-                padding-right: 40px;
-            }
-
-            #announcement-updated {
-                font-size: 8px !important;
-                min-width: 70px;
             }
 
             .container {
@@ -1172,16 +1087,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 font-size: 8px;
                 margin-left: 3px;
             }
-
-            footer {
-                padding: 5px;
-                font-size: 8px;
-            }
-
-            .update-time {
-                gap: 2px;
-                font-size: 8px;
-            }
         }
 
         /* Extra small mobile (under 360px) */
@@ -1207,14 +1112,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 font-size: 12px !important;
             }
 
-            .announcement .marquee .marquee-item {
+            .announcement .announcement-text {
                 font-size: 11px !important;
-                padding-right: 35px;
-            }
-
-            #announcement-updated {
-                font-size: 7px !important;
-                min-width: 60px;
             }
 
             .col-header {
@@ -1282,6 +1181,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             <span>New Sinai MDI Hospital</span>
         </div>
         <div class="header-subtitle">Doctor Availability Board</div>
+        <div class="update-time">
+            <i class="bi bi-clock"></i>
+            <span id="current-time"></span>
+        </div>
     </div>
 </header>
 
@@ -1294,16 +1197,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
 ?>
     <div id="announcement-wrap" class="announcement-wrap" style="background: <?= htmlspecialchars($bg_color) ?>; color: <?= htmlspecialchars($text_color) ?>;">
         <div style="display:flex; align-items:center; gap:8px; width:100%;">
-            <i id="announcement-megaphone" class="bi bi-megaphone-fill" style="font-size:22px; color: <?= htmlspecialchars($text_color) ?>; flex-shrink: 0;"></i>
-            <div class="announcement" id="announcement" style="flex:1; --fade-bg: <?= htmlspecialchars($bg_color) ?>;">
-                <div class="marquee">
-                    <div class="marquee-track">
-                        <span class="marquee-item" data-speed="<?= $speed ?>" style="font-size: <?= $font_size ?>px; color: <?= htmlspecialchars($text_color) ?>;"><?= htmlspecialchars($text) ?></span>
-                    </div>
+            <div class="announcement" id="announcement">
+                <div class="announcement-text" style="font-size: <?= $font_size ?>px; color: <?= htmlspecialchars($text_color) ?>;">
+                    <?= htmlspecialchars($text) ?>
                 </div>
-            </div>
-            <div id="announcement-updated" style="min-width:120px; text-align:right; font-size:12px; opacity:0.9; flex-shrink: 0;">
-                <?= !empty($announcement['updated_at']) ? htmlspecialchars(date('M d, Y H:i', strtotime($announcement['updated_at']))) : '' ?>
             </div>
         </div>
     </div> 
@@ -1438,22 +1335,12 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
     </div>
 </div>
 
-<footer>
-    <div class="update-time">
-        <i class="bi bi-arrow-repeat"></i>
-        Auto-updated every 10 seconds • Last updated: <span id="current-time"></span>
-    </div>
-</footer>
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     function updatePhilippinesTime() {
         // Get current time in Philippines timezone (UTC+8)
         const options = {
             timeZone: 'Asia/Manila',
-            year: 'numeric',
-            month: 'short',
-            day: '2-digit',
             hour: '2-digit',
             minute: '2-digit',
             second: '2-digit',
@@ -1483,52 +1370,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
     // Update time every second
     setInterval(updatePhilippinesTime, 1000);
 
-    // Improved Marquee - Infinite continuous scrolling from right to left
-    document.addEventListener('DOMContentLoaded', function() {
-        const marqueeContainer = document.querySelector('.announcement .marquee');
-        if (!marqueeContainer) return;
-
-        const track = marqueeContainer.querySelector('.marquee-track');
-        if (!track) return;
-
-        const originalItems = track.querySelectorAll('.marquee-item');
-        if (!originalItems.length) return;
-
-        const firstItem = originalItems[0];
-        
-        // Get speed from data attribute
-        const speed = parseFloat(firstItem.dataset.speed) || 14;
-        
-        // Duplicate content multiple times for seamless infinite scroll
-        const originalHTML = track.innerHTML;
-        track.innerHTML = originalHTML + originalHTML + originalHTML + originalHTML;
-
-        // Apply CSS animation for infinite scroll
-        track.style.animation = `scrollLeftInfinite ${speed}s linear infinite`;
-
-        // Pause on hover
-        const announcementWrap = document.getElementById('announcement-wrap');
-        if (announcementWrap) {
-            announcementWrap.addEventListener('mouseenter', () => {
-                track.style.animationPlayState = 'paused';
-            });
-            announcementWrap.addEventListener('mouseleave', () => {
-                track.style.animationPlayState = 'running';
-            });
-        }
-    });
-
     // --- Live updates without full page reload (AJAX polling) ---
     (function() {
         const POLL_MS = 10000; // 10 seconds
         let lastData = null;
-
-        function formatUpdatedAt(ts) {
-            try {
-                const d = new Date(ts);
-                return d.toLocaleString('en-US', {year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit'});
-            } catch(e) { return ts || ''; }
-        }
 
         function buildDoctorCard(doc, isNoClinic) {
             const card = document.createElement('div');
@@ -1610,35 +1455,18 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                     aw.style.background = data.announcement.bg_color || '';
                     aw.style.color = data.announcement.text_color || '';
                     
-                    const items = aw.querySelectorAll('.marquee-item');
-                    items.forEach(item => {
-                        item.textContent = data.announcement.text || '';
-                        item.style.fontSize = (data.announcement.font_size || 32) + 'px';
-                        item.dataset.speed = data.announcement.speed || 14;
-                    });
+                    // Update announcement text
+                    const announcementText = aw.querySelector('.announcement-text');
+                    if (announcementText) {
+                        announcementText.textContent = data.announcement.text || '';
+                        announcementText.style.fontSize = (data.announcement.font_size || 32) + 'px';
+                        announcementText.style.color = data.announcement.text_color || '';
+                    }
                     
-                    const up = document.getElementById('announcement-updated');
-                    if (up) up.textContent = data.announcement.updated_at ? formatUpdatedAt(data.announcement.updated_at) : '';
-                    
-                    // Restart marquee animation with infinite scroll
-                    const track = aw.querySelector('.marquee-track');
-                    if (track) {
-                        const items = aw.querySelectorAll('.marquee-item');
-                        if (items.length > 0) {
-                            const speed = parseFloat(items[0].dataset.speed) || 14;
-                            
-                            // Duplicate content for seamless loop
-                            const firstTwo = Array.from(items).slice(0, 2);
-                            const originalHTML = firstTwo.map(item => item.outerHTML).join('');
-                            track.innerHTML = originalHTML + originalHTML;
-                            
-                            // Remove old animation
-                            track.style.animation = 'none';
-                            // Trigger reflow
-                            void track.offsetHeight;
-                            // Re-apply animation
-                            track.style.animation = `scrollLeftInfinite ${speed}s linear infinite`;
-                        }
+                    // Update megaphone color
+                    const megaphone = document.getElementById('announcement-megaphone');
+                    if (megaphone) {
+                        megaphone.style.color = data.announcement.text_color || '';
                     }
                 }
             }

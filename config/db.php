@@ -1,10 +1,11 @@
 <?php
 $host = "localhost";
-$user = "root";
+$user = "root"; 
 $pass = "";
 $db   = "hospital_display";
+$port = 3307;
 
-$conn = new mysqli($host, $user, $pass, $db);
+$conn = new mysqli($host, $user, $pass, $db, $port);
 
 if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
