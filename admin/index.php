@@ -23,10 +23,12 @@ if (isset($_POST['save'])) {
     $resume = $_POST['resume_date'] ?? null;
     $appt_start = $_POST['appt_start'] ?? null;
     $appt_end = $_POST['appt_end'] ?? null;
+    $remarks = $_POST['remarks'] ?? null;
 
     if ($resume === '') $resume = null;
     if ($appt_start === '') $appt_start = null;
     if ($appt_end === '') $appt_end = null;
+    if ($remarks === '') $remarks = null;
 
     // Clear fields that don't apply to selected status
     if ($status !== 'On Schedule') {
@@ -38,18 +40,17 @@ if (isset($_POST['save'])) {
 
     if ($id == "") {
         $stmt = $conn->prepare(
-            "INSERT INTO doctors (name, department, status, resume_date, appt_start, appt_end)
-             VALUES (?, ?, ?, ?, ?, ?)"
+            "INSERT INTO doctors (name, department, status, resume_date, appt_start, appt_end, remarks)
+             VALUES (?, ?, ?, ?, ?, ?, ?)"
         );
-        $stmt->bind_param("ssssss", $name, $dept, $status, $resume, $appt_start, $appt_end);
+        $stmt->bind_param("sssssss", $name, $dept, $status, $resume, $appt_start, $appt_end, $remarks);
     } else {
         $stmt = $conn->prepare(
-            "UPDATE doctors SET name=?, department=?, status=?, resume_date=?, appt_start=?, appt_end=? WHERE id=?"
+            "UPDATE doctors SET name=?, department=?, status=?, resume_date=?, appt_start=?, appt_end=?, remarks=? WHERE id=?"
         );
-        $stmt->bind_param("ssssssi", $name, $dept, $status, $resume, $appt_start, $appt_end, $id);
+        $stmt->bind_param("sssssssi", $name, $dept, $status, $resume, $appt_start, $appt_end, $remarks, $id);
     }
     $stmt->execute();
-    // redirect back to main page to clear edit state and show updated list
     header("Location: index.php");
     exit;
 } 
@@ -102,13 +103,11 @@ if ($search) {
     $query .= " AND (name LIKE ? OR department LIKE ?)";
 }
 
-// Validate sort column
 $valid_sorts = ['name', 'department', 'status'];
 if (!in_array($sort, $valid_sorts)) {
     $sort = 'name';
 }
 
-// Validate order
 if ($order !== 'ASC' && $order !== 'DESC') {
     $order = 'ASC';
 }
@@ -124,34 +123,25 @@ if ($search) {
     $result = $conn->query($query);
 }
 
-/* ANNOUNCEMENTS TABLE & HANDLING */
-$conn->query("CREATE TABLE IF NOT EXISTS announcements (
+/* DISPLAY SETTINGS TABLE & HANDLING */
+$conn->query("CREATE TABLE IF NOT EXISTS display_settings (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    text TEXT,
-    active TINYINT(1) DEFAULT 0,
-    font_size INT DEFAULT 28,
-    speed INT DEFAULT 18,
-    bg_color VARCHAR(32) DEFAULT '#fff8e1',
-    text_color VARCHAR(32) DEFAULT '#052744',
+    scroll_speed INT DEFAULT 25,
+    pause_at_top INT DEFAULT 3000,
+    pause_at_bottom INT DEFAULT 3000,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 )");
 
-// ensure additional columns exist (DBs without ALTER IF NOT EXISTS may error on older MySQL; check existence first)
-$col = $conn->query("SHOW COLUMNS FROM announcements LIKE 'font_size'")->fetch_assoc();
-if (!$col) {
-    $conn->query("ALTER TABLE announcements ADD COLUMN font_size INT DEFAULT 28");
+// Initialize with default values if empty
+$settings_check = $conn->query("SELECT COUNT(*) as count FROM display_settings")->fetch_assoc();
+if ($settings_check['count'] == 0) {
+    $conn->query("INSERT INTO display_settings (scroll_speed, pause_at_top, pause_at_bottom) VALUES (25, 3000, 3000)");
 }
-$col = $conn->query("SHOW COLUMNS FROM announcements LIKE 'speed'")->fetch_assoc();
+
+// Ensure remarks column exists in doctors table
+$col = $conn->query("SHOW COLUMNS FROM doctors LIKE 'remarks'")->fetch_assoc();
 if (!$col) {
-    $conn->query("ALTER TABLE announcements ADD COLUMN speed INT DEFAULT 18");
-}
-$col = $conn->query("SHOW COLUMNS FROM announcements LIKE 'bg_color'")->fetch_assoc();
-if (!$col) {
-    $conn->query("ALTER TABLE announcements ADD COLUMN bg_color VARCHAR(32) DEFAULT '#fff8e1'");
-}
-$col = $conn->query("SHOW COLUMNS FROM announcements LIKE 'text_color'")->fetch_assoc();
-if (!$col) {
-    $conn->query("ALTER TABLE announcements ADD COLUMN text_color VARCHAR(32) DEFAULT '#052744'");
+    $conn->query("ALTER TABLE doctors ADD COLUMN remarks TEXT NULL");
 }
 
 // Ensure doctors table has fields for appointment times
@@ -162,30 +152,24 @@ if (!$col) {
 $col = $conn->query("SHOW COLUMNS FROM doctors LIKE 'appt_end'")->fetch_assoc();
 if (!$col) {
     $conn->query("ALTER TABLE doctors ADD COLUMN appt_end TIME NULL");
-} 
+}
 
-if (isset($_POST['save_announcement'])) {
-    $announcement_text = $_POST['announcement_text'] ?? '';
-    $announcement_active = isset($_POST['announcement_active']) ? 1 : 0;
-    $announcement_speed = intval($_POST['announcement_speed'] ?? 18);
-    $announcement_bg_color = $_POST['announcement_bg_color'] ?? '#fff8e1';
-    $announcement_text_color = $_POST['announcement_text_color'] ?? '#052744';
-
-    $row = $conn->query("SELECT id FROM announcements LIMIT 1")->fetch_assoc();
-    if ($row) {
-        $stmt = $conn->prepare("UPDATE announcements SET text=?, active=?, speed=?, bg_color=?, text_color=? WHERE id=?");
-        $stmt->bind_param("siissi", $announcement_text, $announcement_active, $announcement_speed, $announcement_bg_color, $announcement_text_color, $row['id']);
-        $stmt->execute();
-    } else {
-        $stmt = $conn->prepare("INSERT INTO announcements (text, active, speed, bg_color, text_color) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("siiss", $announcement_text, $announcement_active, $announcement_speed, $announcement_bg_color, $announcement_text_color);
-        $stmt->execute();
-    }
+if (isset($_POST['save_display_settings'])) {
+    $scroll_speed = intval($_POST['scroll_speed'] ?? 25);
+    $pause_top = intval($_POST['pause_at_top'] ?? 3000);
+    $pause_bottom = intval($_POST['pause_at_bottom'] ?? 3000);
+    
+    // Ensure values are within reasonable ranges
+    $scroll_speed = max(5, min(100, $scroll_speed));
+    $pause_top = max(1000, min(10000, $pause_top));
+    $pause_bottom = max(1000, min(10000, $pause_bottom));
+    
+    $conn->query("UPDATE display_settings SET scroll_speed=$scroll_speed, pause_at_top=$pause_top, pause_at_bottom=$pause_bottom WHERE id=1");
     header("Location: index.php");
     exit;
-} 
+}
 
-$announcement = $conn->query("SELECT * FROM announcements ORDER BY id DESC LIMIT 1")->fetch_assoc();
+$display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIMIT 1")->fetch_assoc();
 ?>
 
 <!DOCTYPE html>
@@ -202,615 +186,715 @@ $announcement = $conn->query("SELECT * FROM announcements ORDER BY id DESC LIMIT
             --primary: #0052CC;
             --primary-600: #1e88e5;
             --accent: #ffc107;
-            --accent-700: #e0a800;
             --success: #28a745;
             --danger: #dc3545;
             --muted: #f1f5f9;
             --bg: linear-gradient(180deg,#f5f7fb 0%, #f8fafc 100%);
             --surface: rgba(255,255,255,0.96);
-            --glass: rgba(255,255,255,0.65);
             --radius: 10px;
             --shadow-1: 0 2px 8px rgba(3,32,71,0.06);
             --shadow-2: 0 8px 30px rgba(3,32,71,0.08);
             --text: #052744;
             --muted-text: rgba(5,39,68,0.6);
             --transition: 240ms cubic-bezier(.2,.8,.2,1);
-            /* legacy aliases */
-            --primary-blue: var(--primary);
-            --secondary-blue: var(--primary-600);
-            --accent-yellow: var(--accent);
         }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
             background: var(--bg);
-            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Inter', 'Segoe UI', sans-serif;
             color: var(--text);
             -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            transition: background var(--transition);
+            line-height: 1.6;
         }
-
-        a { color: var(--primary); }
-        img { max-width: 100%; height: auto; }
-        :focus { outline: none; box-shadow: none; }
-
-        /* subtle micro-interactions */
-        * { transition: color var(--transition), background var(--transition), box-shadow var(--transition), transform var(--transition); }
 
         .navbar {
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-600) 100%);
             box-shadow: var(--shadow-1);
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-            position: relative; /* make navbar the positioning context so header spans full width */
-        }
-        /* make navbar span full viewport width and anchor controls to edges */
-        .navbar .container-fluid { width: 100%; padding: 0 1.5rem; display:block; position:relative; }
-
-        /* left anchored logo */
-        .nav-left { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); display:flex; align-items:center; gap:8px; }
-        .nav-logo-left {
-            height: 52px;
-            width: auto;
-            border-radius:8px;
-            padding:6px;
-            background: rgba(255,255,255,0.12);
-            border: 1px solid rgba(255,255,255,0.12);
-            box-shadow: 0 4px 12px rgba(2,6,23,0.35);
-            transition: transform var(--transition), box-shadow var(--transition), opacity var(--transition);
-            display: block;
-        }
-        .nav-logo-left:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 8px 24px rgba(2,6,23,0.45); opacity: 0.98; }
-
-        /* right anchored user controls */
-        .nav-right { position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); display:flex; align-items:center; gap:12px; }
-
-        .navbar .navbar-brand {
-            display:block;
-            text-align:center;
-            font-weight:600;
-            color:#fff;
-            font-size: 18px;
-            letter-spacing: -0.02em;
-            padding: 0 8px;
-            /* reserve clear space so the centered brand won't overlap the anchored logo/right controls */
-            padding-left: 50px; /* space for left logo (reduced) */
-            padding-right: 120px; /* space for right controls (reduced) */
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 100%;
-            box-sizing: border-box;
-        }
-        .navbar .navbar-brand img { height:36px; width:auto; display:none; }
-
-        @media (max-width: 992px) { .navbar .container-fluid { padding: 0 1rem; } }
-        @media (max-width: 768px) { .nav-right, .nav-left { position: static; transform: none; display:flex; margin-top:8px; } .navbar .container-fluid { padding: 0 0.75rem; } .navbar .navbar-brand { text-align:left; padding-left: 0; padding-right: 0; max-width: none; } }
-
-        /* constrain admin content */
-        .col-lg-10.mx-auto { max-width: 980px; margin-left: auto; margin-right: auto; }
-
-        /* slightly tighter panels for better density */
-        .form-section { padding: 18px; }
-        .table-section { padding: 16px; }
-
-        .navbar .navbar-brand { display:flex; align-items:center; gap:10px; }
-        .navbar .navbar-brand img { height:36px; width:auto; display:block; border-radius:6px; padding:2px; background: rgba(255,255,255,0.04); }
-        .navbar .navbar-brand img:hover { transform: translateY(-2px) scale(1.02); box-shadow: var(--shadow-1); }
-        .navbar .ms-auto { margin-left: auto; display:flex; gap:12px; align-items:center; justify-content:flex-end; }
-        .navbar .text-white { opacity:0.95; }
-
-        .card-surface { background: var(--surface); border-radius: calc(var(--radius) - 2px); box-shadow: var(--shadow-2); }
-        .section-title { letter-spacing: -0.01em; }
-
-        /* input / button focus polish */
-        .form-control:focus { border-color: var(--primary); box-shadow: 0 8px 20px rgba(30,136,229,0.08); }
-        .btn { border-radius: 10px; transition: transform var(--transition), box-shadow var(--transition); }
-        .btn:hover { transform: translateY(-2px); }
-
-        /* action button micro styles */
-        .btn-action { transition: transform var(--transition), opacity var(--transition); }
-        .btn-action:hover { opacity: 0.95; transform: translateY(-3px); }
-
-        /* Utility */
-        .card-surface { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-2); }
-        .muted-text { color: rgba(5,39,68,0.6); }
-        .small { font-size: 0.9rem; }
-
-        /* Enhanced section visuals */
-        .form-section {
-            background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,252,255,0.96));
-            border-radius: var(--radius);
-            padding: 26px;
-            box-shadow: var(--shadow-1);
-            margin-bottom: 28px;
-            border-left: 6px solid rgba(30,136,229,0.08); /* replaced yellow with blue tint */
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
         }
 
-        .table-section {
-            background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,252,255,0.96));
-            border-radius: var(--radius);
-            padding: 22px;
-            box-shadow: var(--shadow-1);
-        }
-
-        footer { text-align:center; color: var(--muted-text); font-size: 12px; margin-top: 18px; }
-
-        .navbar-brand {
-            font-weight: 700;
-            font-size: 24px;
+        .navbar .container-fluid {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem;
             display: flex;
             align-items: center;
-            gap: 10px;
+            justify-content: space-between;
         }
 
-        .form-section {
-            background: white;
-            border-radius: 10px;
-            padding: 30px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-            margin-bottom: 30px;
-            border-top: 4px solid var(--primary-blue);
+        .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
-        .form-label {
-            color: var(--primary-blue);
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .form-control, .form-select {
-            border: 1px solid rgba(16,24,40,0.06);
+        .nav-logo-left {
+            height: 48px;
+            width: auto;
             border-radius: 8px;
-            padding: 12px;
-            transition: all 0.2s ease;
-            background: rgba(255,255,255,0.99);
+            padding: 4px;
+            background: rgba(255,255,255,0.15);
+            transition: transform var(--transition);
         }
 
-        .form-control:focus, .form-select:focus {
-            border-color: var(--primary);
-            box-shadow: 0 6px 18px rgba(0,82,204,0.08);
-            outline: none;
+        .nav-logo-left:hover {
+            transform: translateY(-2px) scale(1.05);
         }
 
-        .btn-save {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-600) 100%);
-            color: #fff;
-            border: none;
-            padding: 12px 20px;
+        .navbar-brand {
+            color: white;
             font-weight: 700;
+            font-size: 20px;
+            text-decoration: none;
+            letter-spacing: -0.02em;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .nav-right .text-white {
+            font-size: 14px;
+            opacity: 0.95;
+        }
+
+        .btn-outline-light {
+            border: 2px solid rgba(255,255,255,0.8);
+            color: white;
+            padding: 8px 20px;
             border-radius: 8px;
-            transition: all 0.24s ease;
-            width: 100%;
-            margin-top: 12px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-        }
-
-        .btn-save:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
-
-        /* Action buttons */
-        .btn-action { padding: 6px 12px; margin: 2px; font-size: 12px; border-radius: 6px; text-decoration: none; display: inline-block; }
-        .btn-edit { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-600) 100%); color: white; }
-        .btn-edit:hover { opacity: 0.95; transform: translateY(-2px); }
-        .btn-delete { background: linear-gradient(135deg, #f44336 0%, #dc3545 100%); color: white; }
-        .btn-delete:hover { opacity: 0.95; transform: translateY(-2px); }
-        .btn-logout { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; border: none; padding: 10px 22px; border-radius: 8px; }
-
-        .section-title { color: var(--primary); font-size: 28px; font-weight: 700; display:flex; align-items:center; gap:10px; }
-
-        /* Table styles */
-        .table { border-collapse: separate; border-spacing: 0 8px; }
-        .table thead { position: sticky; top: 0; z-index: 2; }
-        .table thead th { background: linear-gradient(90deg, var(--primary) 0%, var(--primary-600) 100%); color: white; font-weight: 700; border: none; padding: 16px 18px; text-transform: uppercase; font-size: 16px; border-top-left-radius: 8px; border-top-right-radius: 8px; }
-        .table tbody tr { background: var(--surface); box-shadow: 0 2px 6px rgba(3,32,71,0.04); border-radius: 8px; }
-        .table tbody td { padding: 14px 18px; border: none; vertical-align: middle; font-size: 16px; }
-        .table tbody tr + tr { margin-top: 8px; }
-        .table tbody tr:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(3,32,71,0.06); }
-        .table .badge-available, .table .badge-unavailable, .table .badge-leave { padding: 6px 10px; font-weight:700; border-radius: 999px; }
-        .table-responsive { overflow-x: auto; padding-bottom: 8px; }
-
-        @media (max-width: 768px) { .table thead th { font-size: 14px; } .table tbody td { font-size: 14px; } }
-
-        /* Status badges (subtle pills with color dot) - TV Display Optimized */
-        .status-badge { display:inline-flex; align-items:center; gap:12px; padding: 12px 16px; background: none; font-weight: 700; font-size: 20px; border-radius: 8px; }
-        .status-badge::before { content: ""; display:inline-block; width:16px; height:16px; border-radius:50%; background: currentColor; box-shadow: 0 2px 4px rgba(0,0,0,0.12); transform: translateY(-1px); }
-        .status-available { color: var(--success); }
-        .status-unavailable { color: var(--danger); }
-        .status-onleave { color: var(--danger); background: rgba(220, 53, 69, 0.08); }
-        .status-nomedical { color: #6c757d; background: rgba(108, 117, 125, 0.08); }
-        .status-onschedule { color: var(--primary-600); background: rgba(30, 136, 229, 0.08); }
-
-        .table-section {
-            background: white;
-            border-radius: 10px;
-            padding: 30px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        }
-
-        .table {
-            margin-bottom: 0;
-        }
-
-        .table thead {
-            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
-        }
-
-        .table thead th {
-            color: white;
             font-weight: 600;
-            border: none;
-            padding: 15px;
+            transition: all var(--transition);
         }
 
-        .table tbody td {
-            padding: 15px;
-            border-bottom: 1px solid #e0e0e0;
-            vertical-align: middle;
-        }
-
-        .table tbody tr:hover {
-            background-color: #f5f5f5;
-        }
-
-        .badge-available {
-            background-color: #28a745;
-        }
-
-        .badge-unavailable {
-            background-color: #dc3545;
-        }
-
-        .badge-leave {
-            background-color: rgba(30,136,229,0.10);
-            color: var(--primary-600);
-        }
-
-        .btn-action {
-            padding: 6px 12px;
-            margin: 2px;
-            font-size: 12px;
-            border-radius: 6px;
-            text-decoration: none;
-            display: inline-block;
-            transition: all 0.3s ease;
-        }
-
-        .btn-edit {
-            background-color: #0052CC;
-            color: white;
-        }
-
-        .btn-edit:hover {
-            background-color: #0041a3;
-            color: white;
-        }
-
-        .btn-delete {
-            background-color: #dc3545;
-            color: white;
-        }
-
-        .btn-delete:hover {
-            background-color: #c82333;
-            color: white;
-        }
-
-        .btn-logout {
-            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-            color: white;
-            border: none;
-            padding: 10px 25px;
-            border-radius: 6px;
-            text-decoration: none;
-            display: inline-block;
-            transition: all 0.3s ease;
-        }
-
-        .btn-logout:hover {
+        .btn-outline-light:hover {
+            background: white;
+            color: var(--primary);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
-            color: white;
+        }
+
+        .container-fluid.mt-4 {
+            max-width: 1400px;
+            margin: 2rem auto !important;
+            padding: 0 2rem;
         }
 
         .section-title {
-            color: var(--primary-blue);
+            color: var(--primary);
             font-size: 32px;
             font-weight: 700;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
 
         .section-title i {
             font-size: 36px;
         }
 
-        .content-wrapper {
-            padding: 20px 0;
+        .form-section, .table-section {
+            background: white;
+            border-radius: var(--radius);
+            padding: 32px;
+            box-shadow: var(--shadow-2);
+            margin-bottom: 32px;
+            border-top: 4px solid var(--primary);
         }
 
-        .form-section {
+        .form-label {
+            color: var(--primary);
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .form-control, .form-select, textarea.form-control {
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px;
+            transition: all var(--transition);
+            font-size: 14px;
+        }
+
+        .form-control:focus, .form-select:focus, textarea.form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0,82,204,0.1);
+            outline: none;
+        }
+
+        .btn-save {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-600) 100%);
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            font-weight: 700;
+            border-radius: 8px;
+            transition: all var(--transition);
+            width: 100%;
+            margin-top: 16px;
+            font-size: 16px;
+        }
+
+        .btn-save:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,82,204,0.3);
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 8px;
+        }
+
+        .table thead th {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-600) 100%);
+            color: white;
+            font-weight: 700;
+            padding: 16px;
+            border: none;
+            text-align: left;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+
+        .table thead th:first-child {
+            border-top-left-radius: 8px;
+        }
+
+        .table thead th:last-child {
+            border-top-right-radius: 8px;
+        }
+
+        .table tbody tr {
+            background: white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+            transition: all var(--transition);
+        }
+
+        .table tbody tr:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+        }
+
+        .table tbody td {
+            padding: 16px;
+            border: none;
+            vertical-align: middle;
+            font-size: 14px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 12px;
+        }
+
+        .status-badge::before {
+            content: "";
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .status-nomedical {
+            color: #6c757d;
+            background: rgba(108,117,125,0.1);
+        }
+
+        .status-onschedule {
+            color: var(--primary-600);
+            background: rgba(30,136,229,0.1);
+        }
+
+        .status-onleave {
+            color: var(--danger);
+            background: rgba(220,53,69,0.1);
+        }
+
+        .btn-action {
+            padding: 6px 14px;
+            margin: 2px;
+            font-size: 12px;
+            border-radius: 6px;
+            text-decoration: none;
+            display: inline-block;
+            transition: all var(--transition);
+            font-weight: 600;
+        }
+
+        .btn-edit {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-edit:hover {
+            background: var(--primary-600);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .btn-delete {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #c82333;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        /* Display Settings Card */
+        .settings-card {
             background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-            border-left: 5px solid rgba(30,136,229,0.08);
+            border: 2px solid var(--primary);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 32px;
         }
 
-        .table-section {
-            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-            border-left: 5px solid #0052CC;
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
         }
 
-        .section-title {
-            background: linear-gradient(135deg, #0052CC 0%, #1e88e5 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+        .setting-item {
+            display: flex;
+            flex-direction: column;
         }
 
-        @media (max-width: 1200px) {
-            .col-lg-10 { max-width: 920px; margin: 0 auto; }
+        .setting-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-top: 8px;
         }
 
+        .setting-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--muted-text);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        /* Responsive */
         @media (max-width: 768px) {
-            .section-title { font-size: 18px; }
-            .form-section, .table-section { padding: 16px; }
-            .navbar-brand { font-size: 18px; }
-            .table-responsive { overflow-x:auto; }
-            .btn-save { width: 100%; }
+            .navbar .container-fluid {
+                flex-direction: column;
+                gap: 12px;
+                padding: 0 1rem;
+            }
+
+            .nav-left, .nav-right {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .container-fluid.mt-4 {
+                padding: 0 1rem;
+            }
+
+            .form-section, .table-section {
+                padding: 20px;
+            }
+
+            .section-title {
+                font-size: 24px;
+            }
+
+            .settings-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .table thead th,
+            .table tbody td {
+                font-size: 12px;
+                padding: 12px 8px;
+            }
+        }
+
+        /* Collapsible sections */
+        .collapsible-section {
+            margin-bottom: 24px;
+        }
+
+        .collapsible-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-600) 100%);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 700;
+            transition: all var(--transition);
+        }
+
+        .collapsible-header:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,82,204,0.3);
+        }
+
+        .collapsible-header i {
+            transition: transform var(--transition);
+        }
+
+        .collapsible-header.active i {
+            transform: rotate(180deg);
+        }
+
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .collapsible-content.active {
+            max-height: 2000px;
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark">
+    <nav class="navbar">
         <div class="container-fluid">
             <div class="nav-left">
-                <a href="../display/index.php" title="Open Display"><img src="../display/assets/logo2.png" alt="New Sinai MDI Hospital" class="nav-logo-left" /></a>
+                <a href="../display/index.php" target="_blank" title="Open Display">
+                    <img src="../display/assets/logo2.png" alt="Logo" class="nav-logo-left" />
+                </a>
+                <span class="navbar-brand">New Sinai MDI Hospital</span>
             </div>
 
-            <span class="navbar-brand">New Sinai MDI Hospital</span>
-
             <div class="nav-right">
-                <span class="text-white me-2">Welcome, <strong><?= htmlspecialchars($_SESSION['admin']) ?></strong></span>
-                <a href="logout.php" class="btn btn-outline-light btn-sm">Logout</a>
+                <span class="text-white">Welcome, <strong><?= htmlspecialchars($_SESSION['admin']) ?></strong></span>
+                <a href="logout.php" class="btn btn-outline-light btn-sm">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                </a>
             </div>
         </div>
     </nav>
 
     <div class="container-fluid mt-4">
         <div class="row">
-            <div class="col-lg-10 mx-auto">
-                <div>
-                    <h1 class="section-title">
-                        <i class="bi bi-pencil-square"></i>
-                        Doctor Schedule Management
-                    </h1>
+            <div class="col-12">
+                <h1 class="section-title">
+                    <i class="bi bi-gear-fill"></i>
+                    Admin Dashboard
+                </h1>
+
+                <!-- Display Settings -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleSection('display-settings')">
+                        <span><i class="bi bi-display"></i> Display Scroll Settings</span>
+                        <i class="bi bi-chevron-down"></i>
+                    </div>
+                    <div id="display-settings" class="collapsible-content">
+                        <div class="settings-card mt-3">
+                            <form method="POST">
+                                <div class="settings-grid">
+                                    <div class="setting-item">
+                                        <label for="scroll_speed" class="form-label">
+                                            <i class="bi bi-speedometer2"></i> Scroll Speed (pixels/sec)
+                                        </label>
+                                        <input type="number" class="form-control" id="scroll_speed" name="scroll_speed" 
+                                               value="<?= $display_settings['scroll_speed'] ?? 25 ?>" min="5" max="100" required>
+                                        <small class="text-muted">Range: 5-100 (default: 25)</small>
+                                    </div>
+
+                                    <div class="setting-item">
+                                        <label for="pause_at_top" class="form-label">
+                                            <i class="bi bi-pause-circle"></i> Pause at Top (milliseconds)
+                                        </label>
+                                        <input type="number" class="form-control" id="pause_at_top" name="pause_at_top" 
+                                               value="<?= $display_settings['pause_at_top'] ?? 3000 ?>" min="1000" max="10000" step="500" required>
+                                        <small class="text-muted">Range: 1000-10000 (default: 3000)</small>
+                                    </div>
+
+                                    <div class="setting-item">
+                                        <label for="pause_at_bottom" class="form-label">
+                                            <i class="bi bi-pause-circle"></i> Pause at Bottom (milliseconds)
+                                        </label>
+                                        <input type="number" class="form-control" id="pause_at_bottom" name="pause_at_bottom" 
+                                               value="<?= $display_settings['pause_at_bottom'] ?? 3000 ?>" min="1000" max="10000" step="500" required>
+                                        <small class="text-muted">Range: 1000-10000 (default: 3000)</small>
+                                    </div>
+                                </div>
+
+                                <button type="submit" name="save_display_settings" class="btn-save mt-3">
+                                    <i class="bi bi-save"></i> Save Display Settings
+                                </button>
+                            </form>
+
+                            <div class="mt-4 p-3" style="background: #f8f9fa; border-radius: 8px; border-left: 4px solid var(--primary);">
+                                <strong><i class="bi bi-info-circle"></i> Current Settings:</strong>
+                                <div class="mt-2" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                                    <div>
+                                        <div class="setting-label">Scroll Speed</div>
+                                        <div class="setting-value"><?= $display_settings['scroll_speed'] ?? 25 ?> px/s</div>
+                                    </div>
+                                    <div>
+                                        <div class="setting-label">Pause at Top</div>
+                                        <div class="setting-value"><?= ($display_settings['pause_at_top'] ?? 3000) / 1000 ?> sec</div>
+                                    </div>
+                                    <div>
+                                        <div class="setting-label">Pause at Bottom</div>
+                                        <div class="setting-value"><?= ($display_settings['pause_at_bottom'] ?? 3000) / 1000 ?> sec</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-
-                <!-- Add/Edit Form -->
+                <!-- Add/Edit Doctor Form -->
                 <div class="form-section">
-            <h4 class="section-title" style="font-size: 28px; margin-bottom: 25px;">
-                <i class="bi bi-plus-circle"></i>
-                <?= $edit ? 'Edit Doctor Information' : 'Add New Doctor' ?>
-            </h4>
+                    <h4 class="section-title" style="font-size: 24px;">
+                        <i class="bi bi-plus-circle"></i>
+                        <?= $edit ? 'Edit Doctor Information' : 'Add New Doctor' ?>
+                    </h4>
 
-            <form method="POST" id="doctor-form">
-                <input type="hidden" name="id" value="<?= $edit['id'] ?? '' ?>">
+                    <form method="POST" id="doctor-form">
+                        <input type="hidden" name="id" value="<?= $edit['id'] ?? '' ?>">
 
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label for="name" class="form-label">Doctor Name</label>
-                        <input type="text" class="form-control" id="name" name="name" value="<?= $edit['name'] ?? '' ?>" required>
-                    </div> 
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="name" class="form-label">Doctor Name *</label>
+                                <input type="text" class="form-control" id="name" name="name" 
+                                       value="<?= htmlspecialchars($edit['name'] ?? '') ?>" required>
+                            </div>
 
-                    <div class="col-md-6 mb-3">
-                        <label for="department" class="form-label">Department</label>
-                        <select class="form-select" id="department" name="department" required>
-                            <option value="">Select Department</option>
-                            <?php
-                            $departments = ['OPD','ER','Pediatrics','Cardiology','Radiology','Laboratory'];
-                            foreach ($departments as $d) {
-                                $selected = ($edit && $edit['department'] == $d) ? "selected" : "";
-                                echo "<option value='$d' $selected>$d</option>";
-                            }
-                            ?>
-                        </select>
-                    </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="department" class="form-label">Department *</label>
+                                <select class="form-select" id="department" name="department" required>
+                                    <option value="">Select Department</option>
+                                    <?php
+                                    $departments = ['OPD','ER','Pediatrics','Cardiology','Radiology','Laboratory'];
+                                    foreach ($departments as $d) {
+                                        $selected = ($edit && $edit['department'] == $d) ? "selected" : "";
+                                        echo "<option value='$d' $selected>$d</option>";
+                                    }
+                                    ?>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="status" class="form-label">Status *</label>
+                                <select class="form-select" id="status" name="status">
+                                    <?php
+                                    $statuses = ['On Schedule','No Medical','On Leave'];
+                                    foreach ($statuses as $s) {
+                                        $selected = ($edit && $edit['status'] == $s) ? "selected" : "";
+                                        echo "<option $selected>$s</option>";
+                                    }
+                                    ?>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 mb-3 leave-fields" style="display:none;">
+                                <label for="resume_date" class="form-label">Resume Date</label>
+                                <input type="date" class="form-control" id="resume_date" name="resume_date" 
+                                       value="<?= $edit['resume_date'] ?? '' ?>">
+                            </div>
+
+                            <div class="col-md-3 mb-3 schedule-fields" style="display:none;">
+                                <label for="appt_start" class="form-label">Start Time</label>
+                                <input type="time" class="form-control" id="appt_start" name="appt_start" 
+                                       value="<?= $edit['appt_start'] ?? '' ?>">
+                            </div>
+
+                            <div class="col-md-3 mb-3 schedule-fields" style="display:none;">
+                                <label for="appt_end" class="form-label">End Time</label>
+                                <input type="time" class="form-control" id="appt_end" name="appt_end" 
+                                       value="<?= $edit['appt_end'] ?? '' ?>">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-12 mb-3">
+                                <label for="remarks" class="form-label">Remarks (Optional)</label>
+                                <textarea class="form-control" id="remarks" name="remarks" rows="2" 
+                                          placeholder="Add any additional notes or remarks..."><?= htmlspecialchars($edit['remarks'] ?? '') ?></textarea>
+                            </div>
+                        </div>
+
+                        <div id="form-error" class="text-danger mb-3" style="display:none;"></div>
+
+                        <button type="submit" name="save" class="btn-save">
+                            <i class="bi bi-check-circle"></i> <?= $edit ? 'Update Doctor' : 'Add Doctor' ?>
+                        </button>
+                    </form>
                 </div>
 
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label for="status" class="form-label">Status</label>
-                        <select class="form-select" id="status" name="status">
-                            <?php
-                            // Confidential status options
-                            $statuses = ['On Schedule','No Medical','On Leave'];
-                            foreach ($statuses as $s) {
-                                $selected = ($edit && $edit['status'] == $s) ? "selected" : "";
-                                echo "<option $selected>$s</option>";
-                            }
-                            ?>
-                        </select>
-                    </div> 
+                <!-- Doctor List Table -->
+                <div class="table-section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+                        <h4 class="section-title" style="font-size: 24px; margin: 0;">
+                            <i class="bi bi-list-check"></i>
+                            Doctor List
+                        </h4>
 
-                    <div class="col-md-6 mb-3 schedule-fields" style="display:none;">
-                        <label for="appt_start" class="form-label">Appointment Start</label>
-                        <input type="time" class="form-control" id="appt_start" name="appt_start" value="<?= $edit['appt_start'] ?? '' ?>">
-                    </div>
+                        <form method="GET" style="display: flex; gap: 10px; flex: 1; max-width: 400px;">
+                            <input type="text" name="search" class="form-control" 
+                                   placeholder="Search by name or department..." 
+                                   value="<?= htmlspecialchars($search) ?>">
+                            <button type="submit" class="btn btn-sm" style="background: var(--primary); color: white; padding: 0 20px;">
+                                <i class="bi bi-search"></i>
+                            </button>
+                            <?php if ($search): ?>
+                                <a href="?" class="btn btn-sm" style="background: #6c757d; color: white; padding: 0 20px;">
+                                    <i class="bi bi-x"></i>
+                                </a>
+                            <?php endif; ?>
+                        </form>
 
-                    <div class="col-md-6 mb-3 schedule-fields" style="display:none;">
-                        <label for="appt_end" class="form-label">Appointment End</label>
-                        <input type="time" class="form-control" id="appt_end" name="appt_end" value="<?= $edit['appt_end'] ?? '' ?>">
-                    </div>
-
-                    <div class="col-md-6 mb-3 leave-fields" style="display:none;">
-                        <label for="resume_date" class="form-label">Resume Date</label>
-                        <input type="date" class="form-control" id="resume_date" name="resume_date" value="<?= $edit['resume_date'] ?? '' ?>">
-                    </div>
-                </div>
-
-                <div id="form-error" class="text-danger mb-3" style="display:none;"></div>
-
-                <button type="submit" name="save" class="btn-save">
-                    <i class="bi bi-check-circle"></i> <?= $edit ? 'Update Doctor' : 'Add Doctor' ?>
-                </button>
-            </form> 
-        </div>
-
-        <!-- Doctor List Table -->
-        <div class="table-section">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
-                <h4 class="section-title" style="font-size: 28px; margin-bottom: 0;">
-                    <i class="bi bi-list-check"></i>
-                    Doctor List
-                </h4>
-                
-                <form method="GET" style="display: flex; gap: 10px; flex: 1; max-width: 400px;">
-                    <div style="flex: 1;">
-                        <input type="text" name="search" class="form-control form-control-sm" placeholder="Search by name or department..." value="<?= htmlspecialchars($search) ?>">
-                    </div>
-                    <button type="submit" class="btn btn-sm" style="background: var(--primary-blue); color: white; border: none;">
-                        <i class="bi bi-search"></i> Search
-                    </button>
-                    <?php if ($search): ?>
-                        <a href="?" class="btn btn-sm" style="background: #6c757d; color: white; border: none;">
-                            <i class="bi bi-x"></i> Clear
-                        </a>
-                    <?php endif; ?>
-                </form>
-
-                <div style="display: flex; gap: 10px; align-items:center;">
-                    <div class="status-legend me-2" style="display:flex; gap:12px; align-items:center;">
-                        <div class="legend-item" style="display:flex; gap:8px; align-items:center;">
-                            <span class="legend-dot" style="width:12px;height:12px;border-radius:6px;display:inline-block;background:#6c757d;"></span>
-                            <span class="small muted-text">No Medical</span>
-                        </div>
-                        <div class="legend-item" style="display:flex; gap:8px; align-items:center;">
-                            <span class="legend-dot" style="width:12px;height:12px;border-radius:6px;display:inline-block;background:var(--danger);"></span>
-                            <span class="small muted-text">On Leave</span>
-                        </div>
-                        <div class="legend-item" style="display:flex; gap:8px; align-items:center;">
-                            <span class="legend-dot" style="width:12px;height:12px;border-radius:6px;display:inline-block;background:var(--primary-600);"></span>
-                            <span class="small muted-text">Resume</span>
+                        <div style="display: flex; gap: 10px;">
+                            <button type="button" class="btn btn-sm btn-secondary" id="delete-selected-btn" 
+                                    onclick="deleteSelected()" style="display: none;">
+                                <i class="bi bi-trash"></i> Delete Selected
+                            </button>
+                            <button type="button" class="btn btn-sm btn-danger" onclick="showDeleteAllModal()">
+                                <i class="bi bi-trash"></i> Delete All
+                            </button>
                         </div>
                     </div>
 
-                    <button type="button" class="btn btn-sm btn-secondary" id="delete-selected-btn" onclick="deleteSelected()" style="display: none;">
-                        <i class="bi bi-trash"></i> Delete Selected
-                    </button>
-                    <button type="button" class="btn btn-sm btn-danger" onclick="showDeleteAllModal()">
-                        <i class="bi bi-trash"></i> Delete All
-                    </button>
+                    <form method="POST" id="bulk-delete-form" style="display: none;">
+                        <input type="hidden" name="delete_selected" value="1">
+                    </form>
+
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;">
+                                        <input type="checkbox" id="select-all" onclick="toggleSelectAll()">
+                                    </th>
+                                    <th>
+                                        <a href="?sort=name&order=<?= $sort === 'name' && $order === 'ASC' ? 'DESC' : 'ASC' ?>&search=<?= urlencode($search) ?>" 
+                                           style="text-decoration: none; color: white;">
+                                            Name <?php if ($sort === 'name'): ?>
+                                                <i class="bi <?= $order === 'ASC' ? 'bi-arrow-up' : 'bi-arrow-down' ?>"></i>
+                                            <?php endif; ?>
+                                        </a>
+                                    </th>
+                                    <th>
+                                        <a href="?sort=department&order=<?= $sort === 'department' && $order === 'ASC' ? 'DESC' : 'ASC' ?>&search=<?= urlencode($search) ?>" 
+                                           style="text-decoration: none; color: white;">
+                                            Department <?php if ($sort === 'department'): ?>
+                                                <i class="bi <?= $order === 'ASC' ? 'bi-arrow-up' : 'bi-arrow-down' ?>"></i>
+                                            <?php endif; ?>
+                                        </a>
+                                    </th>
+                                    <th>
+                                        <a href="?sort=status&order=<?= $sort === 'status' && $order === 'ASC' ? 'DESC' : 'ASC' ?>&search=<?= urlencode($search) ?>" 
+                                           style="text-decoration: none; color: white;">
+                                            Status <?php if ($sort === 'status'): ?>
+                                                <i class="bi <?= $order === 'ASC' ? 'bi-arrow-up' : 'bi-arrow-down' ?>"></i>
+                                            <?php endif; ?>
+                                        </a>
+                                    </th>
+                                    <th>Resume Date</th>
+                                    <th>Appointment</th>
+                                    <th>Remarks</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php while ($row = $result->fetch_assoc()): ?>
+                                <tr>
+                                    <td>
+                                        <input type="checkbox" class="doctor-checkbox" value="<?= $row['id'] ?>">
+                                    </td>
+                                    <td><?= htmlspecialchars($row['name']) ?></td>
+                                    <td><?= htmlspecialchars($row['department']) ?></td>
+                                    <td>
+                                        <?php
+                                        $status_text = trim($row['status'] ?? '');
+                                        $low = strtolower(preg_replace('/\s+/', ' ', $status_text));
+
+                                        if ($low === '' || in_array($low, ['not available','no clinic','no medical'])) {
+                                            $label = 'No Medical';
+                                            $badge_class = 'status-nomedical';
+                                        } elseif (in_array($low, ['available','on schedule'])) {
+                                            $label = 'On Schedule';
+                                            $badge_class = 'status-onschedule';
+                                        } elseif (strpos($low, 'leave') !== false) {
+                                            $label = 'On Leave';
+                                            $badge_class = 'status-onleave';
+                                        } else {
+                                            $label = $low ? ucwords($low) : 'No Medical';
+                                            $badge_class = 'status-nomedical';
+                                        }
+
+                                        echo '<span class="status-badge ' . $badge_class . '">' . htmlspecialchars($label) . '</span>';
+                                        ?>
+                                    </td>
+                                    <td><?= $row['resume_date'] ? date('M d, Y', strtotime($row['resume_date'])) : '-' ?></td>
+                                    <td>
+                                        <?= (!empty($row['appt_start']) && !empty($row['appt_end'])) 
+                                            ? htmlspecialchars($row['appt_start'] . ' - ' . $row['appt_end']) 
+                                            : '-' ?>
+                                    </td>
+                                    <td><?= htmlspecialchars($row['remarks'] ?? '-') ?></td>
+                                    <td>
+                                        <a href="?edit=<?= $row['id'] ?>" class="btn-action btn-edit">
+                                            <i class="bi bi-pencil"></i> Edit
+                                        </a>
+                                        <a href="?delete=<?= $row['id'] ?>" class="btn-action btn-delete" 
+                                           onclick="return confirm('Delete this doctor?')">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </a>
+                                    </td>
+                                </tr>
+                                <?php endwhile; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-
-            <form method="POST" id="bulk-delete-form" style="display: none;">
-                <input type="hidden" name="delete_selected" value="1">
-                <input type="hidden" id="selected_ids_input" name="selected_ids[]" value="">
-            </form>
-
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th style="width: 30px;">
-                                <input type="checkbox" id="select-all" onclick="toggleSelectAll()">
-                            </th>
-                            <th>
-                                <a href="?sort=name&order=<?= $sort === 'name' && $order === 'ASC' ? 'DESC' : 'ASC' ?>&search=<?= urlencode($search) ?>" style="text-decoration: none; color: white;">
-                                    <i class="bi bi-person"></i> Name
-                                    <?php if ($sort === 'name'): ?>
-                                        <i class="bi <?= $order === 'ASC' ? 'bi-arrow-up' : 'bi-arrow-down' ?>"></i>
-                                    <?php endif; ?>
-                                </a>
-                            </th>
-                            <th>
-                                <a href="?sort=department&order=<?= $sort === 'department' && $order === 'ASC' ? 'DESC' : 'ASC' ?>&search=<?= urlencode($search) ?>" style="text-decoration: none; color: white;">
-                                    <i class="bi bi-building"></i> Department
-                                    <?php if ($sort === 'department'): ?>
-                                        <i class="bi <?= $order === 'ASC' ? 'bi-arrow-up' : 'bi-arrow-down' ?>"></i>
-                                    <?php endif; ?>
-                                </a>
-                            </th>
-                            <th>
-                                <a href="?sort=status&order=<?= $sort === 'status' && $order === 'ASC' ? 'DESC' : 'ASC' ?>&search=<?= urlencode($search) ?>" style="text-decoration: none; color: white;">
-                                    <i class="bi bi-toggle-on"></i> Status
-                                    <?php if ($sort === 'status'): ?>
-                                        <i class="bi <?= $order === 'ASC' ? 'bi-arrow-up' : 'bi-arrow-down' ?>"></i>
-                                    <?php endif; ?>
-                                </a>
-                            </th>
-                            <th><i class="bi bi-calendar"></i> Resume Date</th>
-                            <th><i class="bi bi-clock"></i> Appointment</th>
-                            <th><i class="bi bi-gear"></i> Actions</th> 
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php while ($row = $result->fetch_assoc()): ?>
-                        <tr>
-                            <td>
-                                <input type="checkbox" class="doctor-checkbox" value="<?= $row['id'] ?>">
-                            </td>
-                            <td><?= htmlspecialchars($row['name']) ?></td>
-                            <td><?= htmlspecialchars($row['department']) ?></td>
-                            <td>
-                                <?php
-                                // Normalize legacy and varied statuses so list shows canonical labels
-                                $status_text = trim($row['status'] ?? '');
-                                $low = strtolower(preg_replace('/\s+/', ' ', $status_text)); // collapse whitespace
-
-                                if ($low === '' || in_array($low, ['not available','notavailable','no clinic','no-clinic','no_medical','nomedical','no medical','not seeing patients'])) {
-                                    $label = 'No Medical';
-                                    $badge_class = 'status-nomedical';
-                                } elseif (in_array($low, ['available','available now','onschedule','on schedule','on-schedule'])) {
-                                    $label = 'On Schedule';
-                                    $badge_class = 'status-onschedule';
-                                } elseif (strpos($low, 'leave') !== false) {
-                                    $label = 'On Leave';
-                                    $badge_class = 'status-onleave';
-                                } else {
-                                    $label = $low ? ucwords($low) : 'No Medical';
-                                    $badge_class = 'status-nomedical';
-                                }
-
-                                echo '<span class="status-badge ' . $badge_class . '">' . htmlspecialchars($label) . '</span>'; 
-                                ?>
-                            </td>
-                            <td><?= $row['resume_date'] ?? '-' ?></td>
-                            <td><?= (!empty($row['appt_start']) && !empty($row['appt_end'])) ? htmlspecialchars($row['appt_start'] . ' - ' . $row['appt_end']) : '-' ?></td>
-                            <td>
-                                <a href="?edit=<?= $row['id'] ?>" class="btn-action btn-edit">
-                                    <i class="bi bi-pencil"></i> Edit
-                                </a>
-                                <a href="?delete=<?= $row['id'] ?>" class="btn-action btn-delete" onclick="return confirm('Are you sure you want to delete this doctor?')">
-                                    <i class="bi bi-trash"></i> Delete
-                                </a>
-                            </td> 
-                        </tr>
-                        <?php endwhile; ?>
-                    </tbody>
-                </table>
-            </div>
         </div>
-    </div>
     </div>
 
     <!-- Delete All Modal -->
     <div class="modal fade" id="deleteAllModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header" style="background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%); color: white;">
+                <div class="modal-header" style="background: var(--danger); color: white;">
                     <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Delete All Doctors</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p><strong>⚠️ Warning:</strong> This will <strong>permanently delete ALL doctors</strong> from the system, including available doctors. This action <strong>CANNOT be undone!</strong></p>
+                    <p><strong>⚠️ Warning:</strong> This will permanently delete ALL doctors. This action CANNOT be undone!</p>
                     <p>Type <strong>DELETE ALL</strong> to confirm:</p>
                     <input type="text" id="confirm-input" class="form-control" placeholder="Type DELETE ALL">
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <form method="POST" style="display: inline;">
-                        <button type="submit" name="delete_all" value="1" class="btn btn-danger" id="confirm-delete-btn" disabled onclick="return validateDeleteAll()">
+                        <button type="submit" name="delete_all" value="1" class="btn btn-danger" 
+                                id="confirm-delete-btn" disabled onclick="return validateDeleteAll()">
                             Delete ALL Doctors
                         </button>
                     </form>
@@ -821,110 +905,81 @@ $announcement = $conn->query("SELECT * FROM announcements ORDER BY id DESC LIMIT
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Store scroll position before page reload
-        let scrollPosition = 0;
-
-        // Save scroll position when page is about to unload
-        window.addEventListener('beforeunload', function() {
-            sessionStorage.setItem('scrollPosition', window.scrollY);
-        });
-
-        // Restore scroll position when page loads
-        window.addEventListener('load', function() {
-            scrollPosition = sessionStorage.getItem('scrollPosition');
-            if (scrollPosition) {
-                window.scrollTo(0, parseInt(scrollPosition));
-            }
-        });
-
-        // Auto-refresh every 30 seconds without jumping to top
-        setInterval(function() {
-            // Save current scroll position
-            sessionStorage.setItem('scrollPosition', window.scrollY);
+        // Collapsible sections
+        function toggleSection(id) {
+            const content = document.getElementById(id);
+            const header = content.previousElementSibling;
             
-            // Reload page silently
-            fetch(window.location.href)
-                .then(response => response.text())
-                .then(html => {
-                    const parser = new DOMParser();
-                    const newDoc = parser.parseFromString(html, 'text/html');
-                    
-                    // Update only the table tbody content
-                    const oldTable = document.querySelector('table tbody');
-                    const newTable = newDoc.querySelector('table tbody');
-                    
-                    if (oldTable && newTable && oldTable.innerHTML !== newTable.innerHTML) {
-                        oldTable.innerHTML = newTable.innerHTML;
-                        
-                        // Re-attach event listeners to checkboxes
-                        attachCheckboxListeners();
+            content.classList.toggle('active');
+            header.classList.toggle('active');
+        }
+
+        // Initialize - open display settings by default
+        document.addEventListener('DOMContentLoaded', function() {
+            toggleSection('display-settings');
+        });
+
+        // Show/hide fields based on status
+        const status = document.getElementById('status');
+        const leaveFields = document.querySelectorAll('.leave-fields');
+        const scheduleFields = document.querySelectorAll('.schedule-fields');
+        const apptStart = document.getElementById('appt_start');
+        const apptEnd = document.getElementById('appt_end');
+
+        function toggleFields() {
+            if (!status) return;
+            if (status.value === 'On Leave') {
+                leaveFields.forEach(e => e.style.display = '');
+                scheduleFields.forEach(e => e.style.display = 'none');
+                if (apptStart) apptStart.required = false;
+                if (apptEnd) apptEnd.required = false;
+            } else if (status.value === 'On Schedule') {
+                leaveFields.forEach(e => e.style.display = 'none');
+                scheduleFields.forEach(e => e.style.display = '');
+                if (apptStart) apptStart.required = true;
+                if (apptEnd) apptEnd.required = true;
+            } else {
+                leaveFields.forEach(e => e.style.display = 'none');
+                scheduleFields.forEach(e => e.style.display = 'none');
+                if (apptStart) apptStart.required = false;
+                if (apptEnd) apptEnd.required = false;
+            }
+        }
+        toggleFields();
+        if (status) status.addEventListener('change', toggleFields);
+
+        // Form validation
+        const form = document.getElementById('doctor-form');
+        const errorEl = document.getElementById('form-error');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                errorEl.style.display = 'none';
+                errorEl.textContent = '';
+                if (!status) return;
+                if (status.value === 'On Schedule') {
+                    const s = apptStart ? apptStart.value : '';
+                    const t = apptEnd ? apptEnd.value : '';
+                    if (!s || !t) {
+                        e.preventDefault();
+                        errorEl.textContent = 'Please enter both start and end times.';
+                        errorEl.style.display = 'block';
+                        return false;
                     }
-                })
-                .catch(error => console.log('Auto-refresh check completed'));
-        }, 30000); // 30 seconds
-
-        function attachCheckboxListeners() {
-            document.querySelectorAll('.doctor-checkbox').forEach(checkbox => {
-                checkbox.addEventListener('change', function() {
-                    const checkboxes = document.querySelectorAll('.doctor-checkbox');
-                    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-                    document.getElementById('select-all').checked = allChecked;
-                    updateDeleteButton();
-                });
+                    const sParts = s.split(':').map(Number);
+                    const tParts = t.split(':').map(Number);
+                    const sMinutes = sParts[0]*60 + (sParts[1] || 0);
+                    const tMinutes = tParts[0]*60 + (tParts[1] || 0);
+                    if (tMinutes <= sMinutes) {
+                        e.preventDefault();
+                        errorEl.textContent = 'End time must be after start time.';
+                        errorEl.style.display = 'block';
+                        return false;
+                    }
+                }
             });
         }
 
-        function showDeleteAllModal() {
-            const modal = new bootstrap.Modal(document.getElementById('deleteAllModal'));
-            modal.show();
-            document.getElementById('confirm-input').value = '';
-            document.getElementById('confirm-delete-btn').disabled = true;
-        }
-
-        function deleteSelected() {
-            const checkboxes = document.querySelectorAll('.doctor-checkbox:checked');
-            if (checkboxes.length === 0) {
-                alert('Please select at least one doctor to delete');
-                return;
-            }
-
-            if (!confirm(`Are you sure you want to delete ${checkboxes.length} doctor(s)? This action cannot be undone!`)) {
-                return;
-            }
-
-            // Collect selected IDs
-            const selectedIds = Array.from(checkboxes).map(cb => cb.value);
-            
-            // Create hidden inputs and submit form
-            const form = document.getElementById('bulk-delete-form');
-            const inputContainer = form.querySelector('input[type="hidden"]:last-of-type').parentElement;
-            
-            // Clear previous hidden inputs
-            form.querySelectorAll('input[type="hidden"][name="selected_ids[]"]').forEach(el => el.remove());
-            
-            // Add new hidden inputs for each selected ID
-            selectedIds.forEach(id => {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'selected_ids[]';
-                input.value = id;
-                form.appendChild(input);
-            });
-            
-            form.submit();
-        }
-
-        document.getElementById('confirm-input').addEventListener('input', function() {
-            document.getElementById('confirm-delete-btn').disabled = this.value !== 'DELETE ALL';
-        });
-
-        function validateDeleteAll() {
-            if (document.getElementById('confirm-input').value === 'DELETE ALL') {
-                return confirm('Are you absolutely sure? All doctors will be permanently deleted!');
-            }
-            return false;
-        }
-
+        // Checkbox functions
         function toggleSelectAll() {
             const checkboxes = document.querySelectorAll('.doctor-checkbox');
             const selectAll = document.getElementById('select-all');
@@ -938,84 +993,65 @@ $announcement = $conn->query("SELECT * FROM announcements ORDER BY id DESC LIMIT
             const checkedCount = document.querySelectorAll('.doctor-checkbox:checked').length;
             const deleteBtn = document.getElementById('delete-selected-btn');
             if (checkedCount > 0) {
-                deleteBtn.style.display = 'block';
+                deleteBtn.style.display = 'inline-block';
                 deleteBtn.textContent = `Delete Selected (${checkedCount})`;
             } else {
                 deleteBtn.style.display = 'none';
             }
         }
 
-        // Update select-all checkbox state when individual checkboxes change
-        attachCheckboxListeners();
+        function deleteSelected() {
+            const checkboxes = document.querySelectorAll('.doctor-checkbox:checked');
+            if (checkboxes.length === 0) {
+                alert('Please select at least one doctor to delete');
+                return;
+            }
 
-        // Initial check
+            if (!confirm(`Delete ${checkboxes.length} doctor(s)?`)) {
+                return;
+            }
+
+            const form = document.getElementById('bulk-delete-form');
+            form.querySelectorAll('input[name="selected_ids[]"]').forEach(el => el.remove());
+            
+            Array.from(checkboxes).forEach(cb => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'selected_ids[]';
+                input.value = cb.value;
+                form.appendChild(input);
+            });
+            
+            form.submit();
+        }
+
+        document.querySelectorAll('.doctor-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const checkboxes = document.querySelectorAll('.doctor-checkbox');
+                const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+                document.getElementById('select-all').checked = allChecked;
+                updateDeleteButton();
+            });
+        });
+
         updateDeleteButton();
 
-        // Show/hide fields and manage required attributes based on status selection
-        (function(){
-            const status = document.getElementById('status');
-            const leaveFields = document.querySelectorAll('.leave-fields');
-            const scheduleFields = document.querySelectorAll('.schedule-fields');
-            const apptStart = document.getElementById('appt_start');
-            const apptEnd = document.getElementById('appt_end');
-            function toggleFields() {
-                if (!status) return;
-                if (status.value === 'On Leave') {
-                    leaveFields.forEach(e => e.style.display = '');
-                    scheduleFields.forEach(e => e.style.display = 'none');
-                    if (apptStart) apptStart.required = false;
-                    if (apptEnd) apptEnd.required = false;
-                } else if (status.value === 'On Schedule') {
-                    leaveFields.forEach(e => e.style.display = 'none');
-                    scheduleFields.forEach(e => e.style.display = '');
-                    if (apptStart) apptStart.required = true;
-                    if (apptEnd) apptEnd.required = true;
-                } else {
-                    leaveFields.forEach(e => e.style.display = 'none');
-                    scheduleFields.forEach(e => e.style.display = 'none');
-                    if (apptStart) apptStart.required = false;
-                    if (apptEnd) apptEnd.required = false;
-                }
-            }
-            toggleFields();
-            if (status) status.addEventListener('change', toggleFields);
+        // Delete all modal
+        function showDeleteAllModal() {
+            const modal = new bootstrap.Modal(document.getElementById('deleteAllModal'));
+            modal.show();
+            document.getElementById('confirm-input').value = '';
+            document.getElementById('confirm-delete-btn').disabled = true;
+        }
 
-            // Form validation: require both times and ensure end > start when On Schedule
-            const form = document.getElementById('doctor-form');
-            const errorEl = document.getElementById('form-error');
-            if (form) {
-                form.addEventListener('submit', function(e) {
-                    errorEl.style.display = 'none';
-                    errorEl.textContent = '';
-                    if (!status) return;
-                    if (status.value === 'On Schedule') {
-                        const s = apptStart ? apptStart.value : '';
-                        const t = apptEnd ? apptEnd.value : '';
-                        if (!s || !t) {
-                            e.preventDefault();
-                            errorEl.textContent = 'Please enter both appointment start and end times for On Schedule.';
-                            errorEl.style.display = '';
-                            if (!s && apptStart) apptStart.focus();
-                            else if (!t && apptEnd) apptEnd.focus();
-                            return false;
-                        }
+        document.getElementById('confirm-input').addEventListener('input', function() {
+            document.getElementById('confirm-delete-btn').disabled = this.value !== 'DELETE ALL';
+        });
 
-                        // compare HH:MM values
-                        const sParts = s.split(':').map(Number);
-                        const tParts = t.split(':').map(Number);
-                        const sMinutes = sParts[0]*60 + (sParts[1] || 0);
-                        const tMinutes = tParts[0]*60 + (tParts[1] || 0);
-                        if (tMinutes <= sMinutes) {
-                            e.preventDefault();
-                            errorEl.textContent = 'Appointment End time must be after Start time.';
-                            errorEl.style.display = '';
-                            if (apptEnd) apptEnd.focus();
-                            return false;
-                        }
-                    }
-                });
-            }
-        })();
+        function validateDeleteAll() {
+            return document.getElementById('confirm-input').value === 'DELETE ALL' && 
+                   confirm('Are you absolutely sure?');
+        }
     </script>
 </body>
 </html>
