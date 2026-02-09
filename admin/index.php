@@ -395,29 +395,29 @@ $announcement = $conn->query("SELECT * FROM announcements ORDER BY id DESC LIMIT
         .btn-delete:hover { opacity: 0.95; transform: translateY(-2px); }
         .btn-logout { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; border: none; padding: 10px 22px; border-radius: 8px; }
 
-        .section-title { color: var(--primary); font-size: 22px; font-weight: 700; display:flex; align-items:center; gap:10px; }
+        .section-title { color: var(--primary); font-size: 28px; font-weight: 700; display:flex; align-items:center; gap:10px; }
 
         /* Table styles */
         .table { border-collapse: separate; border-spacing: 0 8px; }
         .table thead { position: sticky; top: 0; z-index: 2; }
-        .table thead th { background: linear-gradient(90deg, var(--primary) 0%, var(--primary-600) 100%); color: white; font-weight: 700; border: none; padding: 12px 15px; text-transform: uppercase; font-size: 12px; border-top-left-radius: 8px; border-top-right-radius: 8px; }
+        .table thead th { background: linear-gradient(90deg, var(--primary) 0%, var(--primary-600) 100%); color: white; font-weight: 700; border: none; padding: 16px 18px; text-transform: uppercase; font-size: 16px; border-top-left-radius: 8px; border-top-right-radius: 8px; }
         .table tbody tr { background: var(--surface); box-shadow: 0 2px 6px rgba(3,32,71,0.04); border-radius: 8px; }
-        .table tbody td { padding: 10px 15px; border: none; vertical-align: middle; }
+        .table tbody td { padding: 14px 18px; border: none; vertical-align: middle; font-size: 16px; }
         .table tbody tr + tr { margin-top: 8px; }
         .table tbody tr:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(3,32,71,0.06); }
         .table .badge-available, .table .badge-unavailable, .table .badge-leave { padding: 6px 10px; font-weight:700; border-radius: 999px; }
         .table-responsive { overflow-x: auto; padding-bottom: 8px; }
 
-        @media (max-width: 768px) { .table thead th { font-size: 11px; } }
+        @media (max-width: 768px) { .table thead th { font-size: 14px; } .table tbody td { font-size: 14px; } }
 
-        /* Status badges (subtle pills with color dot) */
-        .status-badge { display:inline-flex; align-items:center; gap:8px; padding: 0; background: none; font-weight: 700; font-size: 13px; }
-        .status-badge::before { content: ""; display:inline-block; width:10px; height:10px; border-radius:50%; background: currentColor; box-shadow: 0 1px 2px rgba(0,0,0,0.08); transform: translateY(-1px); }
+        /* Status badges (subtle pills with color dot) - TV Display Optimized */
+        .status-badge { display:inline-flex; align-items:center; gap:12px; padding: 12px 16px; background: none; font-weight: 700; font-size: 20px; border-radius: 8px; }
+        .status-badge::before { content: ""; display:inline-block; width:16px; height:16px; border-radius:50%; background: currentColor; box-shadow: 0 2px 4px rgba(0,0,0,0.12); transform: translateY(-1px); }
         .status-available { color: var(--success); }
         .status-unavailable { color: var(--danger); }
-        .status-onleave { color: var(--danger); }
-        .status-nomedical { color: #6c757d; }
-        .status-onschedule { color: var(--primary-600); }
+        .status-onleave { color: var(--danger); background: rgba(220, 53, 69, 0.08); }
+        .status-nomedical { color: #6c757d; background: rgba(108, 117, 125, 0.08); }
+        .status-onschedule { color: var(--primary-600); background: rgba(30, 136, 229, 0.08); }
 
         .table-section {
             background: white;
@@ -513,7 +513,7 @@ $announcement = $conn->query("SELECT * FROM announcements ORDER BY id DESC LIMIT
 
         .section-title {
             color: var(--primary-blue);
-            font-size: 24px;
+            font-size: 32px;
             font-weight: 700;
             margin-bottom: 20px;
             display: flex;
@@ -522,7 +522,7 @@ $announcement = $conn->query("SELECT * FROM announcements ORDER BY id DESC LIMIT
         }
 
         .section-title i {
-            font-size: 28px;
+            font-size: 36px;
         }
 
         .content-wrapper {
@@ -586,7 +586,7 @@ $announcement = $conn->query("SELECT * FROM announcements ORDER BY id DESC LIMIT
                 </div>
 
                 <div class="form-section">
-                    <h4 class="section-title" style="font-size: 18px; margin-bottom: 25px;">
+                    <h4 class="section-title" style="font-size: 28px; margin-bottom: 25px;">
                         <i class="bi bi-megaphone"></i>
                         Announcements
                     </h4>
@@ -627,7 +627,7 @@ $announcement = $conn->query("SELECT * FROM announcements ORDER BY id DESC LIMIT
 
                 <!-- Add/Edit Form -->
                 <div class="form-section">
-            <h4 class="section-title" style="font-size: 18px; margin-bottom: 25px;">
+            <h4 class="section-title" style="font-size: 28px; margin-bottom: 25px;">
                 <i class="bi bi-plus-circle"></i>
                 <?= $edit ? 'Edit Doctor Information' : 'Add New Doctor' ?>
             </h4>
@@ -698,7 +698,7 @@ $announcement = $conn->query("SELECT * FROM announcements ORDER BY id DESC LIMIT
         <!-- Doctor List Table -->
         <div class="table-section">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
-                <h4 class="section-title" style="font-size: 18px; margin-bottom: 0;">
+                <h4 class="section-title" style="font-size: 28px; margin-bottom: 0;">
                     <i class="bi bi-list-check"></i>
                     Doctor List
                 </h4>

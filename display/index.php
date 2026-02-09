@@ -179,7 +179,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             font-weight: 700;
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             gap: 12px;
             margin-bottom: 2px;
         }
@@ -195,6 +195,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
         .header-subtitle {
             font-size: 12px;
             opacity: 0.9;
+            text-align: left;
+            margin-left: 20px   ;
         }
 
         .update-time {
@@ -1180,11 +1182,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             <img src="assets/logo2.png" alt="New Sinai MDI Hospital Logo" class="header-logo" />
             <span>New Sinai MDI Hospital</span>
         </div>
-        <div class="header-subtitle">Doctor Availability Board</div>
-        <div class="update-time">
-            <i class="bi bi-clock"></i>
-            <span id="current-time"></span>
-        </div>
+        <div class="header-subtitle">Doctor's Clinic Status Board</div>
     </div>
 </header>
 
@@ -1195,15 +1193,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
     $text_color = $announcement['text_color'] ?? '#052744';
     $text = $announcement['text'];
 ?>
-    <div id="announcement-wrap" class="announcement-wrap" style="background: <?= htmlspecialchars($bg_color) ?>; color: <?= htmlspecialchars($text_color) ?>;">
-        <div style="display:flex; align-items:center; gap:8px; width:100%;">
-            <div class="announcement" id="announcement">
-                <div class="announcement-text" style="font-size: <?= $font_size ?>px; color: <?= htmlspecialchars($text_color) ?>;">
-                    <?= htmlspecialchars($text) ?>
-                </div>
-            </div>
-        </div>
-    </div> 
 <?php endif; ?>
 
 <div class="container">
