@@ -585,45 +585,6 @@ $announcement = $conn->query("SELECT * FROM announcements ORDER BY id DESC LIMIT
                     </h1>
                 </div>
 
-                <div class="form-section">
-                    <h4 class="section-title" style="font-size: 28px; margin-bottom: 25px;">
-                        <i class="bi bi-megaphone"></i>
-                        Announcements
-                    </h4>
-
-                    <form method="POST">
-                        <div class="mb-3">
-                            <label for="announcement_text" class="form-label">Announcement Text</label>
-                            <textarea id="announcement_text" name="announcement_text" class="form-control" rows="3" placeholder="Enter announcement for display"><?= htmlspecialchars($announcement['text'] ?? '') ?></textarea>
-                        </div>
-
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-4">
-                                <label class="form-label">Scroll speed (s)</label>
-                                <input type="number" min="6" max="60" name="announcement_speed" value="<?= htmlspecialchars($announcement['speed'] ?? 14) ?>" class="form-control">
-                            </div>
-
-                            <div class="col-md-4">
-                                <label class="form-label">Background</label>
-                                <input type="color" name="announcement_bg_color" value="<?= htmlspecialchars($announcement['bg_color'] ?? '#fff8e1') ?>" class="form-control form-control-color" title="Choose background color">
-                            </div>
-
-                            <div class="col-md-4">
-                                <label class="form-label">Text color</label>
-                                <input type="color" name="announcement_text_color" value="<?= htmlspecialchars($announcement['text_color'] ?? '#052744') ?>" class="form-control form-control-color" title="Choose text color">
-                            </div>
-                        </div>
-
-                        <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" type="checkbox" id="announcement_active" name="announcement_active" <?= (!empty($announcement) && $announcement['active']) ? 'checked' : '' ?>>
-                            <label class="form-check-label" for="announcement_active">Active (show on display)</label>
-                        </div>
-
-                        <button type="submit" name="save_announcement" class="btn-save">
-                            <i class="bi bi-megaphone-fill"></i> Save Announcement
-                        </button>
-                    </form>
-                </div> 
 
                 <!-- Add/Edit Form -->
                 <div class="form-section">

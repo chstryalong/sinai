@@ -129,9 +129,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
         }
 
         header {
+            display: none;
             background: linear-gradient(135deg, rgba(0,82,204,0.88) 0%, rgba(30,136,229,0.80) 100%);
             color: white;
-            padding: 15px 20px;
             text-align: center;
             box-shadow: 0 4px 12px rgba(3,32,71,0.12);
             flex-shrink: 0;
@@ -238,7 +238,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
         /* Single table with dividing line */
         .main-board {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1.2fr 1.2fr;
             gap: 0;
             width: 100%;
             height: 100%;
@@ -273,7 +273,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             display: flex;
             flex-direction: column;
             gap: 8px;
-            padding: 12px 18px;
+            padding: 12px 25px;
             overflow: hidden;
             min-height: 0;
             position: relative;
@@ -326,7 +326,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
         }
 
         .col-list { 
-            overflow-y: auto; 
+            overflow: visible; 
             display: flex; 
             flex-direction: column; 
             gap: 8px; 
@@ -491,6 +491,22 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
 
         .col-list::-webkit-scrollbar-thumb:hover {
             background: var(--secondary-blue);
+        }
+
+        /* Auto-scroll animation */
+        @keyframes infiniteScroll {
+            0% {
+                transform: translateY(0);
+            }
+            100% {
+                transform: translateY(var(--scroll-distance, 0px));
+            }
+        }
+
+        .col-list.auto-scrolling {
+            animation: infiniteScroll linear infinite;
+            animation-duration: var(--scroll-duration, 30s);
+            will-change: transform;
         }
 
         /* Mobile: stack vertically */
@@ -1362,7 +1378,60 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
     // --- Live updates without full page reload (AJAX polling) ---
     (function() {
         const POLL_MS = 10000; // 10 seconds
+        const AUTO_SCROLL_THRESHOLD = 6; // Trigger auto-scroll if more than 6 items
         let lastData = null;
+        const autoScrollIntervals = new Map();
+
+        // Setup auto-scroll for a list
+        function setupAutoScroll(list) {
+            // Clean up any existing animation
+            if (autoScrollIntervals.has(list)) {
+                clearInterval(autoScrollIntervals.get(list));
+            }
+
+            const itemCount = list.children.length;
+            
+            if (itemCount <= AUTO_SCROLL_THRESHOLD) {
+                // Remove auto-scroll if 6 or fewer items
+                list.classList.remove('auto-scrolling');
+                list.style.setProperty('--scroll-distance', '0px');
+                list.style.setProperty('--scroll-duration', '30s');
+                return;
+            }
+
+            // Use requestAnimationFrame to ensure DOM is ready
+            requestAnimationFrame(() => {
+                // Calculate scroll distance based on total scroll height
+                const scrollHeight = list.scrollHeight;
+                const clientHeight = list.parentElement?.clientHeight || 0;
+                const totalScrollDistance = scrollHeight - clientHeight;
+
+                if (totalScrollDistance <= 0) {
+                    // Not enough content to scroll
+                    list.classList.remove('auto-scrolling');
+                    return;
+                }
+
+                const scrollDuration = itemCount * 3; // 3 seconds per item
+
+                // Set CSS variables for animation
+                list.style.setProperty('--scroll-distance', `-${scrollHeight}px`);
+                list.style.setProperty('--scroll-duration', `${scrollDuration}s`);
+
+                // Apply animation
+                list.classList.add('auto-scrolling');
+
+                // Reset animation infinitely
+                const interval = setInterval(() => {
+                    list.style.animation = 'none';
+                    setTimeout(() => {
+                        list.style.animation = '';
+                    }, 10);
+                }, scrollDuration * 1000);
+
+                autoScrollIntervals.set(list, interval);
+            });
+        }
 
         function buildDoctorCard(doc, isNoClinic) {
             const card = document.createElement('div');
@@ -1498,6 +1567,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                     groups['no medical'].forEach(doc => {
                         list.appendChild(buildDoctorCard(doc, true));
                     });
+                    setupAutoScroll(list);
                 }
             }
 
@@ -1545,6 +1615,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                     withResumeDates.forEach(doc => {
                         list.appendChild(buildDoctorCard(doc, false));
                     });
+
+                    setupAutoScroll(list);
                 }
             }
         }
