@@ -326,12 +326,13 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
         }
 
         .col-list { 
-            overflow: visible; 
+            overflow: hidden; 
             display: flex; 
             flex-direction: column; 
             gap: 8px; 
             padding-top: 6px; 
-            min-height: 0; 
+            min-height: 0;
+            flex: 1;
         }
 
         .doctor-card {
@@ -503,10 +504,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             }
         }
 
-        .col-list.auto-scrolling {
-            animation: infiniteScroll linear infinite;
-            animation-duration: var(--scroll-duration, 30s);
-            will-change: transform;
+        .col-list {
+            transition: none !important;
         }
 
         /* Mobile: stack vertically */
@@ -1378,59 +1377,46 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
     // --- Live updates without full page reload (AJAX polling) ---
     (function() {
         const POLL_MS = 10000; // 10 seconds
-        const AUTO_SCROLL_THRESHOLD = 6; // Trigger auto-scroll if more than 6 items
+        const AUTO_SCROLL_THRESHOLD = 0; // Apply auto-scroll to all lists
         let lastData = null;
         const autoScrollIntervals = new Map();
 
         // Setup auto-scroll for a list
         function setupAutoScroll(list) {
-            // Clean up any existing animation
-            if (autoScrollIntervals.has(list)) {
-                clearInterval(autoScrollIntervals.get(list));
-            }
-
             const itemCount = list.children.length;
             
-            if (itemCount <= AUTO_SCROLL_THRESHOLD) {
-                // Remove auto-scroll if 6 or fewer items
-                list.classList.remove('auto-scrolling');
-                list.style.setProperty('--scroll-distance', '0px');
-                list.style.setProperty('--scroll-duration', '30s');
-                return;
-            }
+            if (itemCount === 0) return;
 
-            // Use requestAnimationFrame to ensure DOM is ready
-            requestAnimationFrame(() => {
-                // Calculate scroll distance based on total scroll height
-                const scrollHeight = list.scrollHeight;
-                const clientHeight = list.parentElement?.clientHeight || 0;
-                const totalScrollDistance = scrollHeight - clientHeight;
-
-                if (totalScrollDistance <= 0) {
-                    // Not enough content to scroll
-                    list.classList.remove('auto-scrolling');
-                    return;
+            // Wait for DOM to fully render
+            setTimeout(() => {
+                // Calculate total height
+                let totalHeight = 0;
+                for (let i = 0; i < list.children.length; i++) {
+                    totalHeight += list.children[i].offsetHeight + 8;
                 }
 
-                const scrollDuration = itemCount * 3; // 3 seconds per item
+                const containerHeight = list.offsetHeight || 600;
+                const maxScroll = Math.max(totalHeight - containerHeight, 100);
+                
+                console.log('Scroll setup - Total:', totalHeight, 'Container:', containerHeight, 'MaxScroll:', maxScroll);
 
-                // Set CSS variables for animation
-                list.style.setProperty('--scroll-distance', `-${scrollHeight}px`);
-                list.style.setProperty('--scroll-duration', `${scrollDuration}s`);
+                let currentPos = 0;
+                const itemSpeed = (maxScroll / (itemCount * 4000)); // pixels per ms
 
-                // Apply animation
-                list.classList.add('auto-scrolling');
+                function scrollFrame() {
+                    currentPos += itemSpeed;
+                    
+                    if (currentPos >= maxScroll) {
+                        currentPos = 0;
+                    }
 
-                // Reset animation infinitely
-                const interval = setInterval(() => {
-                    list.style.animation = 'none';
-                    setTimeout(() => {
-                        list.style.animation = '';
-                    }, 10);
-                }, scrollDuration * 1000);
+                    list.style.transform = `translateY(-${currentPos}px)`;
+                    requestAnimationFrame(scrollFrame);
+                }
 
-                autoScrollIntervals.set(list, interval);
-            });
+                // Start the animation
+                scrollFrame();
+            }, 100);
         }
 
         function buildDoctorCard(doc, isNoClinic) {
@@ -1616,7 +1602,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                         list.appendChild(buildDoctorCard(doc, false));
                     });
 
-                    setupAutoScroll(list);
+                    // Force auto-scroll for On Leave even if 6 or fewer
+                    const itemCount = list.children.length;
+                    if (itemCount >= 1) {
+                        setupAutoScroll(list);
+                    }
                 }
             }
         }
