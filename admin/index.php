@@ -666,87 +666,6 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                     </div>
                 </div>
 
-                <!-- Add/Edit Doctor Form -->
-                <div class="form-section">
-                    <h4 class="section-title" style="font-size: 24px;">
-                        <i class="bi bi-plus-circle"></i>
-                        <?= $edit ? 'Edit Doctor Information' : 'Add New Doctor' ?>
-                    </h4>
-
-                    <form method="POST" id="doctor-form">
-                        <input type="hidden" name="id" value="<?= $edit['id'] ?? '' ?>">
-
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="name" class="form-label">Doctor Name *</label>
-                                <input type="text" class="form-control" id="name" name="name" 
-                                       value="<?= htmlspecialchars($edit['name'] ?? '') ?>" required>
-                            </div>
-
-                            <div class="col-md-6 mb-3">
-                                <label for="department" class="form-label">Department *</label>
-                                <select class="form-select" id="department" name="department" required>
-                                    <option value="">Select Department</option>
-                                    <?php
-                                    $departments = ['OPD','ER','Pediatrics','Cardiology','Radiology','Laboratory'];
-                                    foreach ($departments as $d) {
-                                        $selected = ($edit && $edit['department'] == $d) ? "selected" : "";
-                                        echo "<option value='$d' $selected>$d</option>";
-                                    }
-                                    ?>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="status" class="form-label">Status *</label>
-                                <select class="form-select" id="status" name="status">
-                                    <?php
-                                    $statuses = ['On Schedule','No Medical','On Leave'];
-                                    foreach ($statuses as $s) {
-                                        $selected = ($edit && $edit['status'] == $s) ? "selected" : "";
-                                        echo "<option $selected>$s</option>";
-                                    }
-                                    ?>
-                                </select>
-                            </div>
-
-                            <div class="col-md-6 mb-3 leave-fields" style="display:none;">
-                                <label for="resume_date" class="form-label">Resume Date</label>
-                                <input type="date" class="form-control" id="resume_date" name="resume_date" 
-                                       value="<?= $edit['resume_date'] ?? '' ?>">
-                            </div>
-
-                            <div class="col-md-3 mb-3 schedule-fields" style="display:none;">
-                                <label for="appt_start" class="form-label">Start Time</label>
-                                <input type="time" class="form-control" id="appt_start" name="appt_start" 
-                                       value="<?= $edit['appt_start'] ?? '' ?>">
-                            </div>
-
-                            <div class="col-md-3 mb-3 schedule-fields" style="display:none;">
-                                <label for="appt_end" class="form-label">End Time</label>
-                                <input type="time" class="form-control" id="appt_end" name="appt_end" 
-                                       value="<?= $edit['appt_end'] ?? '' ?>">
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-12 mb-3">
-                                <label for="remarks" class="form-label">Remarks (Optional)</label>
-                                <textarea class="form-control" id="remarks" name="remarks" rows="2" 
-                                          placeholder="Add any additional notes or remarks..."><?= htmlspecialchars($edit['remarks'] ?? '') ?></textarea>
-                            </div>
-                        </div>
-
-                        <div id="form-error" class="text-danger mb-3" style="display:none;"></div>
-
-                        <button type="submit" name="save" class="btn-save">
-                            <i class="bi bi-check-circle"></i> <?= $edit ? 'Update Doctor' : 'Add Doctor' ?>
-                        </button>
-                    </form>
-                </div>
-
                 <!-- Doctor List Table -->
                 <div class="table-section">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
@@ -770,6 +689,10 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                         </form>
 
                         <div style="display: flex; gap: 10px;">
+                            <button type="button" class="btn btn-sm" onclick="showDoctorModal()" 
+                                    style="background: linear-gradient(135deg, var(--success) 0%, #28a745 100%); color: white; font-weight: 600; padding: 8px 16px; border: none;">
+                                <i class="bi bi-plus-circle"></i> Add New Doctor
+                            </button>
                             <button type="button" class="btn btn-sm btn-secondary" id="delete-selected-btn" 
                                     onclick="deleteSelected()" style="display: none;">
                                 <i class="bi bi-trash"></i> Delete Selected
@@ -859,7 +782,7 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                                     </td>
                                     <td><?= htmlspecialchars($row['remarks'] ?? '-') ?></td>
                                     <td>
-                                        <a href="?edit=<?= $row['id'] ?>" class="btn-action btn-edit">
+                                        <a href="javascript:void(0)" onclick="editDoctor(<?= $row['id'] ?>, '<?= addslashes($row['name']) ?>', '<?= $row['department'] ?>', '<?= $row['status'] ?>', '<?= $row['resume_date'] ?? '' ?>', '<?= $row['appt_start'] ?? '' ?>', '<?= $row['appt_end'] ?? '' ?>', '<?= addslashes($row['remarks'] ?? '') ?>')" class="btn-action btn-edit">
                                             <i class="bi bi-pencil"></i> Edit
                                         </a>
                                         <a href="?delete=<?= $row['id'] ?>" class="btn-action btn-delete" 
@@ -872,6 +795,90 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Doctor Modal -->
+    <div class="modal fade" id="doctorModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header" style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-600) 100%); color: white;">
+                    <h5 class="modal-title" id="doctorModalTitle">
+                        <i class="bi bi-plus-circle"></i> Add New Doctor
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form method="POST" id="doctor-form">
+                        <input type="hidden" name="id" id="doctor-id" value="">
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="name" class="form-label">Doctor Name *</label>
+                                <input type="text" class="form-control" id="name" name="name" required>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="department" class="form-label">Department *</label>
+                                <select class="form-select" id="department" name="department" required>
+                                    <option value="">Select Department</option>
+                                    <option value="OPD">OPD</option>
+                                    <option value="ER">ER</option>
+                                    <option value="Pediatrics">Pediatrics</option>
+                                    <option value="Cardiology">Cardiology</option>
+                                    <option value="Radiology">Radiology</option>
+                                    <option value="Laboratory">Laboratory</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="status" class="form-label">Status *</label>
+                                <select class="form-select" id="status" name="status">
+                                    <option value="On Schedule">On Schedule</option>
+                                    <option value="No Medical">No Medical</option>
+                                    <option value="On Leave">On Leave</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6 mb-3 leave-fields" style="display:none;">
+                                <label for="resume_date" class="form-label">Resume Date</label>
+                                <input type="date" class="form-control" id="resume_date" name="resume_date">
+                            </div>
+
+                            <div class="col-md-3 mb-3 schedule-fields" style="display:none;">
+                                <label for="appt_start" class="form-label">Start Time</label>
+                                <input type="time" class="form-control" id="appt_start" name="appt_start">
+                            </div>
+
+                            <div class="col-md-3 mb-3 schedule-fields" style="display:none;">
+                                <label for="appt_end" class="form-label">End Time</label>
+                                <input type="time" class="form-control" id="appt_end" name="appt_end">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-12 mb-3">
+                                <label for="remarks" class="form-label">Remarks (Optional)</label>
+                                <textarea class="form-control" id="remarks" name="remarks" rows="2" 
+                                          placeholder="Add any additional notes or remarks..."></textarea>
+                            </div>
+                        </div>
+
+                        <div id="form-error" class="text-danger mb-3" style="display:none;"></div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </button>
+                    <button type="submit" form="doctor-form" name="save" class="btn" 
+                            style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-600) 100%); color: white; font-weight: 700;">
+                        <i class="bi bi-check-circle"></i> Save Doctor
+                    </button>
                 </div>
             </div>
         </div>
@@ -1052,6 +1059,64 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
             return document.getElementById('confirm-input').value === 'DELETE ALL' && 
                    confirm('Are you absolutely sure?');
         }
+
+        // Doctor Modal Functions
+        function showDoctorModal(id = null) {
+            const modal = new bootstrap.Modal(document.getElementById('doctorModal'));
+            
+            // Reset form
+            document.getElementById('doctor-form').reset();
+            document.getElementById('doctor-id').value = '';
+            document.getElementById('form-error').style.display = 'none';
+            
+            // Update modal title
+            const title = document.getElementById('doctorModalTitle');
+            title.innerHTML = '<i class="bi bi-plus-circle"></i> Add New Doctor';
+            
+            // Reset field visibility
+            toggleFields();
+            
+            modal.show();
+        }
+
+        function editDoctor(id, name, department, status, resumeDate, apptStart, apptEnd, remarks) {
+            const modal = new bootstrap.Modal(document.getElementById('doctorModal'));
+            
+            // Update modal title
+            const title = document.getElementById('doctorModalTitle');
+            title.innerHTML = '<i class="bi bi-pencil"></i> Edit Doctor Information';
+            
+            // Populate form fields
+            document.getElementById('doctor-id').value = id;
+            document.getElementById('name').value = name;
+            document.getElementById('department').value = department;
+            document.getElementById('status').value = status;
+            document.getElementById('resume_date').value = resumeDate;
+            document.getElementById('appt_start').value = apptStart;
+            document.getElementById('appt_end').value = apptEnd;
+            document.getElementById('remarks').value = remarks;
+            
+            // Update field visibility based on status
+            toggleFields();
+            
+            modal.show();
+        }
+
+        // Auto-open modal if editing (when page loads with edit parameter)
+        <?php if ($edit): ?>
+        document.addEventListener('DOMContentLoaded', function() {
+            editDoctor(
+                <?= $edit['id'] ?>,
+                '<?= addslashes($edit['name']) ?>',
+                '<?= $edit['department'] ?>',
+                '<?= $edit['status'] ?>',
+                '<?= $edit['resume_date'] ?? '' ?>',
+                '<?= $edit['appt_start'] ?? '' ?>',
+                '<?= $edit['appt_end'] ?? '' ?>',
+                '<?= addslashes($edit['remarks'] ?? '') ?>'
+            );
+        });
+        <?php endif; ?>
     </script>
 </body>
 </html>
