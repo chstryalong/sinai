@@ -1016,6 +1016,9 @@ $announcement = $conn->query("SELECT * FROM announcements ORDER BY id DESC LIMIT
                 });
             }
         })();
+
     </script>
+
+    
 </body>
 </html>
