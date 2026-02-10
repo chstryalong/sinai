@@ -6,47 +6,40 @@ $result = $conn->query("SELECT * FROM doctors ORDER BY department, name");
 $doctors_by_dept = [];
 while ($row = $result->fetch_assoc()) {
     $dept = $row['department'];
-    if (!isset($doctors_by_dept[$dept])) {
-        $doctors_by_dept[$dept] = [];
-    }
     $doctors_by_dept[$dept][] = $row;
 }
 
-// Fetch active announcement (if any)
+// Fetch active announcement
 $ann_res = $conn->query("SELECT * FROM announcements WHERE active=1 ORDER BY id DESC LIMIT 1");
 $announcement = $ann_res ? $ann_res->fetch_assoc() : null;
 
-// Flatten doctors into a single list (keep department as property)
+// Flatten doctors
 $all_doctors = [];
-foreach ($doctors_by_dept as $dname => $list) {
+foreach ($doctors_by_dept as $dept => $list) {
     foreach ($list as $r) {
-        $r['department'] = $dname;
+        $r['department'] = $dept;
         $all_doctors[] = $r;
     }
 }
 
-// Provide a lightweight AJAX endpoint for live updates
+// AJAX endpoint
 if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
-    header('Content-Type: application/json; charset=utf-8');
-    // We return announcement and the flat doctors list
+    header('Content-Type: application/json');
     echo json_encode([
         'announcement' => $announcement,
-        'doctors'      => $all_doctors
+        'doctors' => $all_doctors
     ]);
     exit;
-} 
+}
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New Sinai MDI Hospital - Doctor Availability</title>
-
-    <!-- Auto refresh removed — using AJAX live updates -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+<meta charset="UTF-8">
+<title>Doctor Clinic Status Board</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
 
     <style>
         :root {
@@ -1192,440 +1185,110 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
 <body>
 
 <header>
-    <div class="header-content">
-        <div class="header-title">
-            <img src="assets/logo2.png" alt="New Sinai MDI Hospital Logo" class="header-logo" />
-            <span>New Sinai MDI Hospital</span>
-        </div>
-        <div class="header-subtitle">Doctor's Clinic Status Board</div>
-    </div>
+    <h3 class="m-0">New Sinai MDI Hospital</h3>
+    <small>Doctor Clinic Status Board</small>
 </header>
 
-<?php if (!empty($announcement) && trim($announcement['text'] ?? '') !== ''):
-    $font_size = intval($announcement['font_size'] ?? 32);
-    $speed = intval($announcement['speed'] ?? 14);
-    $bg_color = $announcement['bg_color'] ?? '#fff8e1';
-    $text_color = $announcement['text_color'] ?? '#052744';
-    $text = $announcement['text'];
-?>
-<?php endif; ?>
-
 <div class="container">
-    <?php
-        // Pre-group doctors into the two status columns for server-side initial render
-        $groups = ['no medical' => [], 'on leave' => []];
-        foreach ($all_doctors as $d) {
-            $low = strtolower(trim($d['status'] ?? ''));
-            if ($low === '' || strpos($low, 'no medical') !== false || strpos($low, 'no clinic') !== false) {
-                $key = 'no medical';
-            } elseif (strpos($low, 'leave') !== false) {
-                $key = 'on leave';
-            } elseif (strpos($low, 'schedule') !== false || strpos($low, 'available') !== false) {
-                // Skip "On Schedule" entries entirely (do not display them)
-                continue;
-            } else {
-                $key = 'no medical';
-            }
-            $groups[$key][] = $d;
-        }
-    ?>
+<?php
+$groups = ['no medical' => [], 'on leave' => []];
+foreach ($all_doctors as $d) {
+    $s = strtolower($d['status'] ?? '');
+    if ($s === '' || str_contains($s, 'no clinic')) {
+        $groups['no medical'][] = $d;
+    } elseif (str_contains($s, 'leave')) {
+        $groups['on leave'][] = $d;
+    }
+}
+?>
 
-    <div class="main-board">
-        <!-- No Clinic Column -->
-        <div class="status-col" data-status="no medical">
-            <div class="col-header">
-                <div class="col-header-left">
-                    <span>No Clinic Today</span>
-                    <span class="col-count">(<?= count($groups['no medical']) ?>)</span>
-                </div>
-                <div class="current-date" id="current-date-display">
-                    <?= date('M d, Y') ?>
-                </div>
+<div class="main-board">
+
+<!-- NO CLINIC -->
+<div class="status-col">
+    <div class="col-header">
+        <span>No Clinic Today</span>
+        <span>(<?= count($groups['no medical']) ?>)</span>
+    </div>
+    <div class="col-list auto-scroll">
+        <?php foreach ($groups['no medical'] as $d): ?>
+        <div class="doctor-card">
+            <div class="doctor-name">
+                <i class="bi bi-person-fill"></i>
+                <?= htmlspecialchars($d['name']) ?>
             </div>
-            <div class="col-list">
-                <?php foreach ($groups['no medical'] as $doctor): ?>
-                    <div class="doctor-card">
-                        <div class="doctor-name">
-                            <i class="doctor-icon bi bi-person-fill"></i>
-                            <span><?= htmlspecialchars($doctor['name']) ?></span>
-                        </div>
-                        <div class="doctor-specialization">
-                            <?= htmlspecialchars($doctor['department'] ?? 'General') ?>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
+            <div class="doctor-specialization">
+                <?= htmlspecialchars($d['department']) ?>
             </div>
         </div>
-
-        <!-- On Leave Column -->
-        <div class="status-col" data-status="on leave">
-            <div class="col-header">
-                <div class="col-header-left">
-                    <span>On Leave</span>
-                    <span class="col-count">(<?= count($groups['on leave']) ?>)</span>
-                </div>
-                <div class="col-header-right">
-                    <div class="resumes-label">
-                        <i class="bi bi-calendar-check"></i>
-                        <span>Resumes</span>
-                    </div>
-                </div>
-            </div>
-            <div class="col-list">
-                <?php 
-                // Separate doctors with resume dates from those without
-                $onLeaveOnly = [];
-                $withResumeDates = [];
-                
-                foreach ($groups['on leave'] as $doctor) {
-                    if (!empty($doctor['resume_date'])) {
-                        $withResumeDates[] = $doctor;
-                    } else {
-                        $onLeaveOnly[] = $doctor;
-                    }
-                }
-                
-                // Display doctors on leave without resume dates first
-                foreach ($onLeaveOnly as $doctor): 
-                ?>
-                    <div class="doctor-card">
-                        <div class="doctor-name-row">
-                            <div class="doctor-name-left">
-                                <i class="doctor-icon bi bi-person-fill"></i>
-                                <span><?= htmlspecialchars($doctor['name']) ?></span>
-                            </div>
-                        </div>
-                        <div class="doctor-specialization">
-                            <?= htmlspecialchars($doctor['department'] ?? 'General') ?>
-                        </div>
-
-                        <?php if (!empty($doctor['remarks'])): ?>
-                            <div class="status-note">
-                                <span>Remarks:</span>
-                                <span class="muted"><?= htmlspecialchars($doctor['remarks']) ?></span>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                <?php endforeach; ?>
-
-                <?php 
-                // Display doctors with resume dates
-                foreach ($withResumeDates as $doctor): 
-                ?>
-                    <div class="doctor-card">
-                        <div class="doctor-name-row">
-                            <div class="doctor-name-left">
-                                <i class="doctor-icon bi bi-person-fill"></i>
-                                <span><?= htmlspecialchars($doctor['name']) ?></span>
-                            </div>
-                            <div class="resume-date-right">
-                                <?= date("M d, Y", strtotime($doctor['resume_date'])) ?>
-                            </div>
-                        </div>
-                        <div class="doctor-specialization">
-                            <?= htmlspecialchars($doctor['department'] ?? 'General') ?>
-                        </div>
-
-                        <?php if (!empty($doctor['remarks'])): ?>
-                            <div class="status-note">
-                                <span>Remarks:</span>
-                                <span class="muted"><?= htmlspecialchars($doctor['remarks']) ?></span>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-        </div>
+        <?php endforeach; ?>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- ON LEAVE -->
+<div class="status-col">
+    <div class="col-header">
+        <span>On Leave</span>
+        <span>(<?= count($groups['on leave']) ?>)</span>
+    </div>
+    <div class="col-list auto-scroll">
+        <?php foreach ($groups['on leave'] as $d): ?>
+        <div class="doctor-card">
+            <div class="doctor-name">
+                <i class="bi bi-person-fill"></i>
+                <?= htmlspecialchars($d['name']) ?>
+            </div>
+            <div class="doctor-specialization">
+                <?= htmlspecialchars($d['department']) ?>
+            </div>
+            <?php if (!empty($d['remarks'])): ?>
+            <div class="status-note">
+                Remarks: <?= htmlspecialchars($d['remarks']) ?>
+            </div>
+            <?php endif; ?>
+        </div>
+        <?php endforeach; ?>
+    </div>
+</div>
+
+</div>
+</div>
+
 <script>
-    function updatePhilippinesTime() {
-        // Get current time in Philippines timezone (UTC+8)
-        const options = {
-            timeZone: 'Asia/Manila',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true
-        };
-        
-        const phillipinesTime = new Intl.DateTimeFormat('en-US', options).format(new Date());
-        document.getElementById('current-time').textContent = phillipinesTime;
-        
-        // Also update the date display
-        const dateOptions = {
-            timeZone: 'Asia/Manila',
-            year: 'numeric',
-            month: 'short',
-            day: '2-digit'
-        };
-        const dateDisplay = new Intl.DateTimeFormat('en-US', dateOptions).format(new Date());
-        const dateEl = document.getElementById('current-date-display');
-        if (dateEl) {
-            dateEl.textContent = dateDisplay;
+/* ===========================
+   AUTO SCROLL (TV FRIENDLY)
+   =========================== */
+function enableAutoScroll(el, speed = 0.4, pause = 2000) {
+    let dir = 1;
+    let paused = false;
+
+    function animate() {
+        if (!paused) {
+            el.scrollTop += dir * speed;
+
+            if (el.scrollTop + el.clientHeight >= el.scrollHeight - 1) {
+                paused = true;
+                setTimeout(() => { dir = -1; paused = false; }, pause);
+            }
+
+            if (el.scrollTop <= 0) {
+                paused = true;
+                setTimeout(() => { dir = 1; paused = false; }, pause);
+            }
         }
+        requestAnimationFrame(animate);
     }
-    
-    // Update time immediately
-    updatePhilippinesTime();
-    
-    // Update time every second
-    setInterval(updatePhilippinesTime, 1000);
 
-    // --- Live updates without full page reload (AJAX polling) ---
-    (function() {
-        const POLL_MS = 10000; // 10 seconds
-        const AUTO_SCROLL_THRESHOLD = 0; // Apply auto-scroll to all lists
-        let lastData = null;
-        const autoScrollIntervals = new Map();
+    el.addEventListener('mouseenter', () => paused = true);
+    el.addEventListener('mouseleave', () => paused = false);
 
-        // Setup auto-scroll for a list
-        function setupAutoScroll(list) {
-            const itemCount = list.children.length;
-            
-            if (itemCount === 0) return;
+    animate();
+}
 
-            // Wait for DOM to fully render
-            setTimeout(() => {
-                // Calculate total height
-                let totalHeight = 0;
-                for (let i = 0; i < list.children.length; i++) {
-                    totalHeight += list.children[i].offsetHeight + 8;
-                }
-
-                const containerHeight = list.offsetHeight || 600;
-                const maxScroll = Math.max(totalHeight - containerHeight, 100);
-                
-                console.log('Scroll setup - Total:', totalHeight, 'Container:', containerHeight, 'MaxScroll:', maxScroll);
-
-                let currentPos = 0;
-                const itemSpeed = (maxScroll / (itemCount * 4000)); // pixels per ms
-
-                function scrollFrame() {
-                    currentPos += itemSpeed;
-                    
-                    if (currentPos >= maxScroll) {
-                        currentPos = 0;
-                    }
-
-                    list.style.transform = `translateY(-${currentPos}px)`;
-                    requestAnimationFrame(scrollFrame);
-                }
-
-                // Start the animation
-                scrollFrame();
-            }, 100);
-        }
-
-        function buildDoctorCard(doc, isNoClinic) {
-            const card = document.createElement('div');
-            card.className = 'doctor-card';
-            
-            if (isNoClinic) {
-                // No Clinic cards use simple doctor-name structure
-                const name = document.createElement('div');
-                name.className = 'doctor-name';
-                
-                const icon = document.createElement('i'); 
-                icon.className = 'doctor-icon bi bi-person-fill';
-                const text = document.createElement('span'); 
-                text.textContent = doc.name || '';
-                text.style.color = 'var(--primary-blue)';
-                
-                name.appendChild(icon);
-                name.appendChild(text);
-                card.appendChild(name);
-            } else {
-                // On Leave cards use doctor-name-row structure
-                const nameRow = document.createElement('div');
-                nameRow.className = 'doctor-name-row';
-                
-                const nameLeft = document.createElement('div');
-                nameLeft.className = 'doctor-name-left';
-                
-                const icon = document.createElement('i'); 
-                icon.className = 'doctor-icon bi bi-person-fill';
-                const text = document.createElement('span'); 
-                text.textContent = doc.name || '';
-                text.style.color = 'var(--primary-blue)';
-                
-                nameLeft.appendChild(icon);
-                nameLeft.appendChild(text);
-                nameRow.appendChild(nameLeft);
-                
-                // Add resume date on the right if exists
-                if (doc.resume_date) {
-                    const resumeRight = document.createElement('div');
-                    resumeRight.className = 'resume-date-right';
-                    try {
-                        const d = new Date(doc.resume_date);
-                        resumeRight.textContent = d.toLocaleDateString('en-US', {year:'numeric', month:'short', day:'2-digit'});
-                    } catch(e) {
-                        resumeRight.textContent = doc.resume_date;
-                    }
-                    nameRow.appendChild(resumeRight);
-                }
-                
-                card.appendChild(nameRow);
-            }
-
-            const specialization = document.createElement('div');
-            specialization.className = 'doctor-specialization';
-            specialization.textContent = doc.department || 'General';
-            card.appendChild(specialization);
-
-            if (!isNoClinic && doc.remarks) {
-                const note = document.createElement('div'); 
-                note.className = 'status-note';
-                note.innerHTML = '<span>Remarks:</span> <span class="muted">' + doc.remarks + '</span>';
-                card.appendChild(note);
-            }
-            
-            return card;
-        }
-
-        function updateBoard(data) {
-            if (!data) return;
-            
-            // Announcement
-            const aw = document.getElementById('announcement-wrap');
-            if (!data.announcement || !data.announcement.text || data.announcement.text.trim() === '') {
-                if (aw) aw.style.display = 'none';
-            } else {
-                if (aw) {
-                    aw.style.display = 'flex';
-                    aw.style.background = data.announcement.bg_color || '';
-                    aw.style.color = data.announcement.text_color || '';
-                    
-                    // Update announcement text
-                    const announcementText = aw.querySelector('.announcement-text');
-                    if (announcementText) {
-                        announcementText.textContent = data.announcement.text || '';
-                        announcementText.style.fontSize = (data.announcement.font_size || 32) + 'px';
-                        announcementText.style.color = data.announcement.text_color || '';
-                    }
-                    
-                    // Update megaphone color
-                    const megaphone = document.getElementById('announcement-megaphone');
-                    if (megaphone) {
-                        megaphone.style.color = data.announcement.text_color || '';
-                    }
-                }
-            }
-
-            // Board update
-            const board = document.querySelector('.main-board');
-            if (!board) return;
-
-            // If identical data, skip repaint
-            try { if (JSON.stringify(data) === JSON.stringify(lastData)) return; } catch(e) {}
-            lastData = data;
-
-            // Group doctors (exclude "On Schedule")
-            const groups = { 'no medical': [], 'on leave': [] };
-            (data.doctors || []).forEach(d => {
-                const st = (d.status || '').toLowerCase();
-                if (st === '' || st.indexOf('no medical') !== -1 || st.indexOf('no clinic') !== -1) {
-                    groups['no medical'].push(d);
-                } else if (st.indexOf('leave') !== -1) {
-                    groups['on leave'].push(d);
-                } else if (st.indexOf('schedule') !== -1 || st.indexOf('available') !== -1) {
-                    // skip
-                } else {
-                    groups['no medical'].push(d);
-                }
-            });
-
-            // Update columns
-            const cols = board.querySelectorAll('.status-col');
-            
-            // Update No Clinic column
-            const noClinicCol = cols[0];
-            if (noClinicCol) {
-                const count = noClinicCol.querySelector('.col-count');
-                if (count) count.textContent = '(' + groups['no medical'].length + ')';
-                
-                const list = noClinicCol.querySelector('.col-list');
-                if (list) {
-                    list.innerHTML = '';
-                    groups['no medical'].forEach(doc => {
-                        list.appendChild(buildDoctorCard(doc, true));
-                    });
-                    setupAutoScroll(list);
-                }
-            }
-
-            // Update On Leave column
-            const onLeaveCol = cols[1];
-            if (onLeaveCol) {
-                // Update header with Resumes label
-                let headerRight = onLeaveCol.querySelector('.col-header-right');
-                if (!headerRight) {
-                    headerRight = document.createElement('div');
-                    headerRight.className = 'col-header-right';
-                    const resumesLabel = document.createElement('div');
-                    resumesLabel.className = 'resumes-label';
-                    resumesLabel.innerHTML = '<i class="bi bi-calendar-check"></i><span>Resumes</span>';
-                    headerRight.appendChild(resumesLabel);
-                    const header = onLeaveCol.querySelector('.col-header');
-                    if (header) header.appendChild(headerRight);
-                }
-                
-                const count = onLeaveCol.querySelector('.col-count');
-                if (count) count.textContent = '(' + groups['on leave'].length + ')';
-                
-                const list = onLeaveCol.querySelector('.col-list');
-                if (list) {
-                    list.innerHTML = '';
-                    
-                    // Separate doctors with and without resume dates
-                    const onLeaveOnly = [];
-                    const withResumeDates = [];
-                    
-                    groups['on leave'].forEach(doc => {
-                        if (doc.resume_date) {
-                            withResumeDates.push(doc);
-                        } else {
-                            onLeaveOnly.push(doc);
-                        }
-                    });
-                    
-                    // Add doctors on leave without resume dates first
-                    onLeaveOnly.forEach(doc => {
-                        list.appendChild(buildDoctorCard(doc, false));
-                    });
-                    
-                    // Add doctors with resume dates (no separate category wrapper)
-                    withResumeDates.forEach(doc => {
-                        list.appendChild(buildDoctorCard(doc, false));
-                    });
-
-                    // Force auto-scroll for On Leave even if 6 or fewer
-                    const itemCount = list.children.length;
-                    if (itemCount >= 1) {
-                        setupAutoScroll(list);
-                    }
-                }
-            }
-        }
-
-        async function fetchLoop() {
-            try {
-                const res = await fetch(window.location.pathname + '?ajax=1');
-                if (!res.ok) return;
-                const data = await res.json();
-                updateBoard(data);
-            } catch (e) { 
-                console.warn('Live update failed', e); 
-            }
-        }
-
-        // Initial fetch and periodic polling
-        fetchLoop();
-        setInterval(fetchLoop, POLL_MS);
-    })();
+document.querySelectorAll('.auto-scroll').forEach(list => {
+    enableAutoScroll(list, 0.35, 2500);
+});
 </script>
+
 </body>
 </html>
