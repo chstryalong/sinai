@@ -205,13 +205,33 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
 
         .col-list { 
             overflow: hidden; 
-            display: flex; 
-            flex-direction: column; 
-            gap: 12px; 
-            padding-top: 8px; 
+            display: block;
+            padding-top: 16px;
+            padding-bottom: 16px;
             min-height: 0;
             flex: 1;
             position: relative;
+            /* Gradient mask to fade content at edges and prevent overlap appearance */
+            mask-image: linear-gradient(to bottom, 
+                transparent 0%, 
+                black 40px, 
+                black calc(100% - 40px), 
+                transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, 
+                transparent 0%, 
+                black 40px, 
+                black calc(100% - 40px), 
+                transparent 100%);
+        }
+
+        .col-list-inner {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            will-change: transform;
+            transition: none;
+            padding-top: 12px;
+            padding-bottom: 12px;
         }
 
         .doctor-card {
@@ -306,7 +326,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
         }
 
         /* Smooth scrolling styles */
-        .col-list {
+        .col-list-inner {
             will-change: transform;
         }
 
@@ -916,6 +936,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 </div>
             </div>
             <div class="col-list">
+                <div class="col-list-inner">
                 <?php foreach ($groups['no medical'] as $doctor): ?>
                     <div class="doctor-card">
                         <div class="doctor-name">
@@ -927,6 +948,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                         </div>
                     </div>
                 <?php endforeach; ?>
+                </div>
             </div>
         </div>
 
@@ -945,6 +967,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 </div>
             </div>
             <div class="col-list">
+                <div class="col-list-inner">
                 <?php 
                 $onLeaveOnly = [];
                 $withResumeDates = [];
@@ -1004,6 +1027,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                         <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
+                </div>
+            </div>
             </div>
         </div>
     </div>
@@ -1038,7 +1063,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
         let PAUSE_AT_BOTTOM = <?= $display_settings['pause_at_bottom'] ?? 3000 ?>; // ms to pause at bottom (from database)
         let lastData = null;
 
-        function setupSmoothAutoScroll(list) {
+        function setupSmoothAutoScroll(listContainer) {
+            // Get the inner wrapper that will actually scroll
+            const list = listContainer.querySelector('.col-list-inner');
+            if (!list) return;
+            
             const itemCount = list.children.length;
             
             if (itemCount === 0) return;
@@ -1053,8 +1082,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                     const card = list.children[i];
                     totalHeight += card.offsetHeight + 12; // include gap
                 }
+                
+                // Add padding from col-list-inner
+                totalHeight += 24; // padding-top + padding-bottom
 
-                const containerHeight = list.offsetHeight || 600;
+                const containerHeight = listContainer.offsetHeight || 600;
                 const maxScroll = Math.max(totalHeight - containerHeight, 0);
                 
                 // If content fits in view, no need to scroll
@@ -1221,10 +1253,13 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 
                 const list = noClinicCol.querySelector('.col-list');
                 if (list) {
-                    list.innerHTML = '';
-                    groups['no medical'].forEach(doc => {
-                        list.appendChild(buildDoctorCard(doc, true));
-                    });
+                    const inner = list.querySelector('.col-list-inner');
+                    if (inner) {
+                        inner.innerHTML = '';
+                        groups['no medical'].forEach(doc => {
+                            inner.appendChild(buildDoctorCard(doc, true));
+                        });
+                    }
                     setupSmoothAutoScroll(list);
                 }
             }
@@ -1249,7 +1284,16 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 
                 const list = onLeaveCol.querySelector('.col-list');
                 if (list) {
-                    list.innerHTML = '';
+                    const inner = list.querySelector('.col-list-inner');
+                    if (!inner) {
+                        // Create inner wrapper if it doesn't exist
+                        const newInner = document.createElement('div');
+                        newInner.className = 'col-list-inner';
+                        list.appendChild(newInner);
+                    }
+                    
+                    const innerWrapper = list.querySelector('.col-list-inner');
+                    innerWrapper.innerHTML = '';
                     
                     const onLeaveOnly = [];
                     const withResumeDates = [];
@@ -1263,11 +1307,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                     });
                     
                     onLeaveOnly.forEach(doc => {
-                        list.appendChild(buildDoctorCard(doc, false));
+                        innerWrapper.appendChild(buildDoctorCard(doc, false));
                     });
                     
                     withResumeDates.forEach(doc => {
-                        list.appendChild(buildDoctorCard(doc, false));
+                        innerWrapper.appendChild(buildDoctorCard(doc, false));
                     });
 
                     setupSmoothAutoScroll(list);
