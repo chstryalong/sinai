@@ -31,14 +31,49 @@ if (isset($_POST['save'])) {
     if ($appt_end === '') $appt_end = null;
     if ($remarks === '') $remarks = null;
 
-    // Clear fields that don't apply to selected status
-    if ($status !== 'On Schedule') {
-        $appt_start = null; $appt_end = null;
+    // Validation: On Leave requires resume date AND remarks
+if ($status === 'On Leave') {
+
+    // Resume date required
+    if (empty($resume)) {
+        $_SESSION['error'] = 'Resume date is required for doctors on leave.';
+        header("Location: index.php");
+        exit;
     }
+
+    // Validate correct date format (Y-m-d)
+    $dateObj = DateTime::createFromFormat('Y-m-d', $resume);
+    if (!$dateObj || $dateObj->format('Y-m-d') !== $resume) {
+        $_SESSION['error'] = 'Invalid resume date format.';
+        header("Location: index.php");
+        exit;
+    }
+
+    // Prevent past dates
+    $today = new DateTime();
+    $today->setTime(0,0,0);
+    if ($dateObj < $today) {
+    $error = 'Resume date cannot be in the past.';
+    $open_modal = true;
+}
+
+    // Remarks required
+    if (empty(trim($remarks))) {
+    $error = 'Remarks are required when doctor is On Leave.';
+    $open_modal = true;
+}
+}
+
+    // Clear fields that don't apply to selected status
     if ($status !== 'On Leave') {
         $resume = null;
         $is_tentative = 0;
     }
+
+    // Always clear appointment times since we removed "On Schedule" option
+    $appt_start = null;
+    $appt_end = null;
+    
 
     if ($id == "") {
         $stmt = $conn->prepare(
@@ -627,6 +662,14 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
     <div class="container-fluid mt-4">
         <div class="row">
             <div class="col-12">
+                <?php if (isset($_SESSION['error'])): ?>
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i> <?= htmlspecialchars($_SESSION['error']) ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    <?php unset($_SESSION['error']); ?>
+                <?php endif; ?>
+
                 <h1 class="section-title">
                     <i class="bi bi-gear-fill"></i>
                     Admin Dashboard
@@ -769,7 +812,6 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                                         </a>
                                     </th>
                                     <th>Resume Date</th>
-                                    <th>Appointment</th>
                                     <th>Remarks</th>
                                     <th>Actions</th>
                                 </tr>
@@ -814,14 +856,9 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                                             -
                                         <?php endif; ?>
                                     </td>
-                                    <td>
-                                        <?= (!empty($row['appt_start']) && !empty($row['appt_end'])) 
-                                            ? htmlspecialchars($row['appt_start'] . ' - ' . $row['appt_end']) 
-                                            : '-' ?>
-                                    </td>
                                     <td><?= htmlspecialchars($row['remarks'] ?? '-') ?></td>
                                     <td>
-                                        <a href="javascript:void(0)" onclick="editDoctor(<?= $row['id'] ?>, '<?= addslashes($row['name']) ?>', '<?= $row['department'] ?>', '<?= $row['status'] ?>', '<?= $row['resume_date'] ?? '' ?>', '<?= $row['appt_start'] ?? '' ?>', '<?= $row['appt_end'] ?? '' ?>', '<?= addslashes($row['remarks'] ?? '') ?>', <?= $row['is_tentative'] ?? 0 ?>)" class="btn-action btn-edit">
+                                        <a href="javascript:void(0)" onclick="editDoctor(<?= $row['id'] ?>, '<?= addslashes($row['name']) ?>', '<?= $row['department'] ?>', '<?= $row['status'] ?>', '<?= $row['resume_date'] ?? '' ?>', '<?= addslashes($row['remarks'] ?? '') ?>', <?= $row['is_tentative'] ?? 0 ?>)" class="btn-action btn-edit">
                                             <i class="bi bi-pencil"></i> Edit
                                         </a>
                                         <a href="?delete=<?= $row['id'] ?>" class="btn-action btn-delete" 
@@ -877,25 +914,20 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                             <div class="col-md-6 mb-3">
                                 <label for="status" class="form-label">Status *</label>
                                 <select class="form-select" id="status" name="status">
-                                    <option value="On Schedule">On Schedule</option>
                                     <option value="No Medical">No Medical</option>
                                     <option value="On Leave">On Leave</option>
                                 </select>
                             </div>
 
                             <div class="col-md-6 mb-3 leave-fields" style="display:none;">
-                                <label for="resume_date" class="form-label">Resume Date</label>
+                                <label for="resume_date" class="form-label">Resume Date *</label>
                                 <input type="date" class="form-control" id="resume_date" name="resume_date">
-                            </div>
 
-                            <div class="col-md-3 mb-3 schedule-fields" style="display:none;">
-                                <label for="appt_start" class="form-label">Start Time</label>
-                                <input type="time" class="form-control" id="appt_start" name="appt_start">
-                            </div>
-
-                            <div class="col-md-3 mb-3 schedule-fields" style="display:none;">
-                                <label for="appt_end" class="form-label">End Time</label>
-                                <input type="time" class="form-control" id="appt_end" name="appt_end">
+                                        <?php if (!empty($error)): ?>
+                                            <div class="text-danger mt-1">
+                                        <?= htmlspecialchars($error) ?>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                         </div>
 
@@ -980,27 +1012,16 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
         // Show/hide fields based on status
         const status = document.getElementById('status');
         const leaveFields = document.querySelectorAll('.leave-fields');
-        const scheduleFields = document.querySelectorAll('.schedule-fields');
-        const apptStart = document.getElementById('appt_start');
-        const apptEnd = document.getElementById('appt_end');
+        const resumeDate = document.getElementById('resume_date');
 
         function toggleFields() {
             if (!status) return;
             if (status.value === 'On Leave') {
                 leaveFields.forEach(e => e.style.display = '');
-                scheduleFields.forEach(e => e.style.display = 'none');
-                if (apptStart) apptStart.required = false;
-                if (apptEnd) apptEnd.required = false;
-            } else if (status.value === 'On Schedule') {
-                leaveFields.forEach(e => e.style.display = 'none');
-                scheduleFields.forEach(e => e.style.display = '');
-                if (apptStart) apptStart.required = true;
-                if (apptEnd) apptEnd.required = true;
+                if (resumeDate) resumeDate.required = true;
             } else {
                 leaveFields.forEach(e => e.style.display = 'none');
-                scheduleFields.forEach(e => e.style.display = 'none');
-                if (apptStart) apptStart.required = false;
-                if (apptEnd) apptEnd.required = false;
+                if (resumeDate) resumeDate.required = false;
             }
         }
         toggleFields();
@@ -1014,22 +1035,12 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                 errorEl.style.display = 'none';
                 errorEl.textContent = '';
                 if (!status) return;
-                if (status.value === 'On Schedule') {
-                    const s = apptStart ? apptStart.value : '';
-                    const t = apptEnd ? apptEnd.value : '';
-                    if (!s || !t) {
+                
+                if (status.value === 'On Leave') {
+                    const resumeDateVal = resumeDate ? resumeDate.value : '';
+                    if (!resumeDateVal) {
                         e.preventDefault();
-                        errorEl.textContent = 'Please enter both start and end times.';
-                        errorEl.style.display = 'block';
-                        return false;
-                    }
-                    const sParts = s.split(':').map(Number);
-                    const tParts = t.split(':').map(Number);
-                    const sMinutes = sParts[0]*60 + (sParts[1] || 0);
-                    const tMinutes = tParts[0]*60 + (tParts[1] || 0);
-                    if (tMinutes <= sMinutes) {
-                        e.preventDefault();
-                        errorEl.textContent = 'End time must be after start time.';
+                        errorEl.textContent = 'Resume date is required for doctors on leave.';
                         errorEl.style.display = 'block';
                         return false;
                     }
@@ -1131,7 +1142,7 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
             modal.show();
         }
 
-        function editDoctor(id, name, department, status, resumeDate, apptStart, apptEnd, remarks, isTentative) {
+        function editDoctor(id, name, department, status, resumeDate, remarks, isTentative) {
             const modal = new bootstrap.Modal(document.getElementById('doctorModal'));
             
             // Update modal title
@@ -1144,8 +1155,6 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
             document.getElementById('department').value = department;
             document.getElementById('status').value = status;
             document.getElementById('resume_date').value = resumeDate;
-            document.getElementById('appt_start').value = apptStart;
-            document.getElementById('appt_end').value = apptEnd;
             document.getElementById('remarks').value = remarks;
             document.getElementById('is_tentative').checked = isTentative == 1;
             
@@ -1164,13 +1173,19 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                 '<?= $edit['department'] ?>',
                 '<?= $edit['status'] ?>',
                 '<?= $edit['resume_date'] ?? '' ?>',
-                '<?= $edit['appt_start'] ?? '' ?>',
-                '<?= $edit['appt_end'] ?? '' ?>',
                 '<?= addslashes($edit['remarks'] ?? '') ?>',
                 <?= $edit['is_tentative'] ?? 0 ?>
             );
         });
         <?php endif; ?>
     </script>
+    <?php if ($open_modal): ?>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    var modal = new bootstrap.Modal(document.getElementById('doctorModal'));
+    modal.show();
+});
+</script>
+<?php endif; ?>
 </body>
 </html>
