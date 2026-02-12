@@ -24,6 +24,7 @@ if (isset($_POST['save'])) {
     $appt_start = $_POST['appt_start'] ?? null;
     $appt_end = $_POST['appt_end'] ?? null;
     $remarks = $_POST['remarks'] ?? null;
+    $is_tentative = isset($_POST['is_tentative']) ? 1 : 0;
 
     if ($resume === '') $resume = null;
     if ($appt_start === '') $appt_start = null;
@@ -36,19 +37,20 @@ if (isset($_POST['save'])) {
     }
     if ($status !== 'On Leave') {
         $resume = null;
+        $is_tentative = 0;
     }
 
     if ($id == "") {
         $stmt = $conn->prepare(
-            "INSERT INTO doctors (name, department, status, resume_date, appt_start, appt_end, remarks)
-             VALUES (?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO doctors (name, department, status, resume_date, appt_start, appt_end, remarks, is_tentative)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
         );
-        $stmt->bind_param("sssssss", $name, $dept, $status, $resume, $appt_start, $appt_end, $remarks);
+        $stmt->bind_param("sssssssi", $name, $dept, $status, $resume, $appt_start, $appt_end, $remarks, $is_tentative);
     } else {
         $stmt = $conn->prepare(
-            "UPDATE doctors SET name=?, department=?, status=?, resume_date=?, appt_start=?, appt_end=?, remarks=? WHERE id=?"
+            "UPDATE doctors SET name=?, department=?, status=?, resume_date=?, appt_start=?, appt_end=?, remarks=?, is_tentative=? WHERE id=?"
         );
-        $stmt->bind_param("sssssssi", $name, $dept, $status, $resume, $appt_start, $appt_end, $remarks, $id);
+        $stmt->bind_param("sssssssii", $name, $dept, $status, $resume, $appt_start, $appt_end, $remarks, $is_tentative, $id);
     }
     $stmt->execute();
     header("Location: index.php");
@@ -152,6 +154,12 @@ if (!$col) {
 $col = $conn->query("SHOW COLUMNS FROM doctors LIKE 'appt_end'")->fetch_assoc();
 if (!$col) {
     $conn->query("ALTER TABLE doctors ADD COLUMN appt_end TIME NULL");
+}
+
+// Ensure is_tentative column exists
+$col = $conn->query("SHOW COLUMNS FROM doctors LIKE 'is_tentative'")->fetch_assoc();
+if (!$col) {
+    $conn->query("ALTER TABLE doctors ADD COLUMN is_tentative TINYINT(1) DEFAULT 0");
 }
 
 if (isset($_POST['save_display_settings'])) {
@@ -497,6 +505,28 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
             letter-spacing: 0.5px;
         }
 
+        .tentative-badge {
+            display: inline-block;
+            background: rgba(255,193,7,0.2);
+            color: #856404;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            margin-left: 8px;
+        }
+
+        .form-check-label {
+            color: var(--text);
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .form-check-input:checked {
+            background-color: var(--accent);
+            border-color: var(--accent);
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .navbar .container-fluid {
@@ -774,7 +804,16 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                                         echo '<span class="status-badge ' . $badge_class . '">' . htmlspecialchars($label) . '</span>';
                                         ?>
                                     </td>
-                                    <td><?= $row['resume_date'] ? date('M d, Y', strtotime($row['resume_date'])) : '-' ?></td>
+                                    <td>
+                                        <?php if ($row['resume_date']): ?>
+                                            <?= date('M d, Y', strtotime($row['resume_date'])) ?>
+                                            <?php if ($row['is_tentative']): ?>
+                                                <span class="tentative-badge">TENTATIVE</span>
+                                            <?php endif; ?>
+                                        <?php else: ?>
+                                            -
+                                        <?php endif; ?>
+                                    </td>
                                     <td>
                                         <?= (!empty($row['appt_start']) && !empty($row['appt_end'])) 
                                             ? htmlspecialchars($row['appt_start'] . ' - ' . $row['appt_end']) 
@@ -782,7 +821,7 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                                     </td>
                                     <td><?= htmlspecialchars($row['remarks'] ?? '-') ?></td>
                                     <td>
-                                        <a href="javascript:void(0)" onclick="editDoctor(<?= $row['id'] ?>, '<?= addslashes($row['name']) ?>', '<?= $row['department'] ?>', '<?= $row['status'] ?>', '<?= $row['resume_date'] ?? '' ?>', '<?= $row['appt_start'] ?? '' ?>', '<?= $row['appt_end'] ?? '' ?>', '<?= addslashes($row['remarks'] ?? '') ?>')" class="btn-action btn-edit">
+                                        <a href="javascript:void(0)" onclick="editDoctor(<?= $row['id'] ?>, '<?= addslashes($row['name']) ?>', '<?= $row['department'] ?>', '<?= $row['status'] ?>', '<?= $row['resume_date'] ?? '' ?>', '<?= $row['appt_start'] ?? '' ?>', '<?= $row['appt_end'] ?? '' ?>', '<?= addslashes($row['remarks'] ?? '') ?>', <?= $row['is_tentative'] ?? 0 ?>)" class="btn-action btn-edit">
                                             <i class="bi bi-pencil"></i> Edit
                                         </a>
                                         <a href="?delete=<?= $row['id'] ?>" class="btn-action btn-delete" 
@@ -857,6 +896,18 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                             <div class="col-md-3 mb-3 schedule-fields" style="display:none;">
                                 <label for="appt_end" class="form-label">End Time</label>
                                 <input type="time" class="form-control" id="appt_end" name="appt_end">
+                            </div>
+                        </div>
+
+                        <div class="row leave-fields" style="display:none;">
+                            <div class="col-12 mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="is_tentative" name="is_tentative" value="1">
+                                    <label class="form-check-label" for="is_tentative">
+                                        <i class="bi bi-calendar-question"></i> Resume date is tentative
+                                    </label>
+                                </div>
+                                <small class="text-muted">Check this if the return date is not confirmed yet</small>
                             </div>
                         </div>
 
@@ -1068,6 +1119,7 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
             document.getElementById('doctor-form').reset();
             document.getElementById('doctor-id').value = '';
             document.getElementById('form-error').style.display = 'none';
+            document.getElementById('is_tentative').checked = false;
             
             // Update modal title
             const title = document.getElementById('doctorModalTitle');
@@ -1079,7 +1131,7 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
             modal.show();
         }
 
-        function editDoctor(id, name, department, status, resumeDate, apptStart, apptEnd, remarks) {
+        function editDoctor(id, name, department, status, resumeDate, apptStart, apptEnd, remarks, isTentative) {
             const modal = new bootstrap.Modal(document.getElementById('doctorModal'));
             
             // Update modal title
@@ -1095,6 +1147,7 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
             document.getElementById('appt_start').value = apptStart;
             document.getElementById('appt_end').value = apptEnd;
             document.getElementById('remarks').value = remarks;
+            document.getElementById('is_tentative').checked = isTentative == 1;
             
             // Update field visibility based on status
             toggleFields();
@@ -1113,7 +1166,8 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                 '<?= $edit['resume_date'] ?? '' ?>',
                 '<?= $edit['appt_start'] ?? '' ?>',
                 '<?= $edit['appt_end'] ?? '' ?>',
-                '<?= addslashes($edit['remarks'] ?? '') ?>'
+                '<?= addslashes($edit['remarks'] ?? '') ?>',
+                <?= $edit['is_tentative'] ?? 0 ?>
             );
         });
         <?php endif; ?>

@@ -306,6 +306,19 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             flex-shrink: 0;
         }
 
+        .tentative-badge {
+            display: inline-block;
+            background: rgba(255,193,7,0.25);
+            color: #856404;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 700;
+            text-align: center;
+            border: 2px dashed rgba(255,193,7,0.6);
+            white-space: nowrap;
+        }
+
         .status-note {
             font-size: 18px;
             color: #052744;
@@ -399,6 +412,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 padding: 5px 12px;
             }
 
+            .tentative-badge {
+                font-size: 14px;
+                padding: 3px 10px;
+            }
+
             .status-note {
                 font-size: 16px;
                 padding: 9px 14px;
@@ -470,6 +488,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             .resume-date-right {
                 font-size: 16px;
                 padding: 4px 10px;
+            }
+
+            .tentative-badge {
+                font-size: 13px;
+                padding: 3px 9px;
             }
 
             .status-note {
@@ -557,6 +580,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 border-radius: 6px;
             }
 
+            .tentative-badge {
+                font-size: 12px;
+                padding: 3px 8px;
+            }
+
             .status-note {
                 font-size: 13px;
                 padding: 7px 10px;
@@ -639,6 +667,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             .resume-date-right {
                 font-size: 12px;
                 padding: 3px 6px;
+            }
+
+            .tentative-badge {
+                font-size: 11px;
+                padding: 2px 7px;
             }
 
             .status-note {
@@ -733,6 +766,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 padding: 2px 5px;
             }
 
+            .tentative-badge {
+                font-size: 10px;
+                padding: 2px 6px;
+            }
+
             .status-note {
                 font-size: 11px;
                 padding: 5px 7px;
@@ -821,6 +859,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 padding: 2px 4px;
             }
 
+            .tentative-badge {
+                font-size: 9px;
+                padding: 2px 5px;
+            }
+
             .status-note {
                 font-size: 10px;
                 padding: 4px 6px;
@@ -886,6 +929,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             .resume-date-right {
                 font-size: 8px;
                 padding: 2px 3px;
+            }
+
+            .tentative-badge {
+                font-size: 8px;
+                padding: 2px 4px;
             }
 
             .status-note {
@@ -1015,8 +1063,15 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                                 <?= date("M d, Y", strtotime($doctor['resume_date'])) ?>
                             </div>
                         </div>
-                        <div class="doctor-specialization">
-                            <?= htmlspecialchars($doctor['department'] ?? 'General') ?>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div class="doctor-specialization" style="margin-bottom: 0;">
+                                <?= htmlspecialchars($doctor['department'] ?? 'General') ?>
+                            </div>
+                            <?php if (!empty($doctor['is_tentative']) && $doctor['is_tentative'] == 1): ?>
+                                <div class="tentative-badge">
+                                    <i class="bi bi-calendar-question"></i> TENTATIVE
+                                </div>
+                            <?php endif; ?>
                         </div>
 
                         <?php if (!empty($doctor['remarks'])): ?>
@@ -1198,10 +1253,27 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 card.appendChild(nameRow);
             }
 
+            // Department row with tentative badge
+            const deptRow = document.createElement('div');
+            deptRow.style.display = 'flex';
+            deptRow.style.justifyContent = 'space-between';
+            deptRow.style.alignItems = 'center';
+            
             const specialization = document.createElement('div');
             specialization.className = 'doctor-specialization';
+            specialization.style.marginBottom = '0';
             specialization.textContent = doc.department || 'General';
-            card.appendChild(specialization);
+            deptRow.appendChild(specialization);
+            
+            // Add tentative badge on the same line as department if applicable
+            if (!isNoClinic && doc.resume_date && doc.is_tentative == 1) {
+                const tentativeBadge = document.createElement('div');
+                tentativeBadge.className = 'tentative-badge';
+                tentativeBadge.innerHTML = '<i class="bi bi-calendar-question"></i> TENTATIVE';
+                deptRow.appendChild(tentativeBadge);
+            }
+            
+            card.appendChild(deptRow);
 
             if (!isNoClinic && doc.remarks) {
                 const note = document.createElement('div'); 
