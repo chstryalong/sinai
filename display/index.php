@@ -39,11 +39,12 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
         'display_settings' => $display_settings
     ]);
     exit;
-} 
+}
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -62,12 +63,12 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             --danger: #dc3545;
             --muted: #eef6ff;
             --bg: #f7fbff;
-            --surface: rgba(255,255,255,0.9);
+            --surface: rgba(255, 255, 255, 0.9);
             --text: #052744;
-            --glass: rgba(255,255,255,0.75);
+            --glass: rgba(255, 255, 255, 0.75);
             --radius: 12px;
-            --shadow-1: 0 4px 12px rgba(3,32,71,0.08);
-            --shadow-2: 0 8px 24px rgba(3,32,71,0.12);
+            --shadow-1: 0 4px 12px rgba(3, 32, 71, 0.08);
+            --shadow-2: 0 8px 24px rgba(3, 32, 71, 0.12);
         }
 
         * {
@@ -76,8 +77,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             box-sizing: border-box;
         }
 
-        html, body { 
-            -webkit-font-smoothing: antialiased; 
+        html,
+        body {
+            -webkit-font-smoothing: antialiased;
             text-rendering: optimizeLegibility;
             overflow: hidden;
         }
@@ -90,7 +92,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             flex-direction: column;
             position: relative;
             color: #052744;
-            font-size: 20px; /* Base font size for TV */
+            font-size: 20px;
+            /* Base font size for TV */
         }
 
         body::before {
@@ -98,10 +101,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             position: absolute;
             inset: 0;
             background-image:
-                linear-gradient(rgba(3,32,71,0.30), rgba(3,32,71,0.30)),
+                linear-gradient(rgba(3, 32, 71, 0.30), rgba(3, 32, 71, 0.30)),
                 url('assets/logo.png'),
-                radial-gradient(circle at 10% 20%, rgba(1,63,113,0.06) 0%, transparent 15%),
-                radial-gradient(circle at 80% 80%, rgba(30,136,229,0.04) 0%, transparent 20%),
+                radial-gradient(circle at 10% 20%, rgba(1, 63, 113, 0.06) 0%, transparent 15%),
+                radial-gradient(circle at 80% 80%, rgba(30, 136, 229, 0.04) 0%, transparent 20%),
                 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 300"><g fill="%230052CC" fill-opacity="0.06"><rect x="100" y="80" width="80" height="120" rx="6"/><rect x="200" y="50" width="100" height="150" rx="6"/><rect x="320" y="20" width="160" height="180" rx="6"/><rect x="500" y="90" width="80" height="110" rx="6"/><rect x="620" y="60" width="90" height="140" rx="6"/><rect x="720" y="40" width="110" height="160" rx="6"/><rect x="860" y="70" width="140" height="130" rx="6"/><rect x="1050" y="100" width="90" height="100" rx="6"/></g></svg>');
             background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat;
             background-position: center center, center center, center, center, 50% 35%;
@@ -143,22 +146,22 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             overflow: hidden;
             min-height: 0;
             position: relative;
-            background: linear-gradient(180deg, rgba(255,255,255,0.90), rgba(245,250,255,0.85));
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.90), rgba(245, 250, 255, 0.85));
             border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(3,32,71,0.12);
-            border-top: 4px solid rgba(0,82,204,0.15);
+            box-shadow: 0 8px 32px rgba(3, 32, 71, 0.12);
+            border-top: 4px solid rgba(0, 82, 204, 0.15);
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
         }
 
-        .col-header { 
-            font-weight: 800; 
+        .col-header {
+            font-weight: 800;
             font-size: 32px;
-            display: flex; 
-            justify-content: space-between; 
+            display: flex;
+            justify-content: space-between;
             align-items: center;
-            gap: 12px; 
-            padding-bottom: 16px; 
+            gap: 12px;
+            padding-bottom: 16px;
             border-bottom: 3px solid var(--accent);
             flex-shrink: 0;
         }
@@ -198,13 +201,13 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             font-size: 26px;
             font-weight: 750;
             color: var(--primary);
-            background: rgba(0,82,204,0.1);
+            background: rgba(0, 82, 204, 0.1);
             padding: 8px 16px;
             border-radius: 10px;
         }
 
-        .col-list { 
-            overflow: hidden; 
+        .col-list {
+            overflow: hidden;
             display: block;
             padding-top: 16px;
             padding-bottom: 16px;
@@ -212,16 +215,16 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             flex: 1;
             position: relative;
             /* Gradient mask to fade content at edges and prevent overlap appearance */
-            mask-image: linear-gradient(to bottom, 
-                transparent 0%, 
-                black 40px, 
-                black calc(100% - 40px), 
-                transparent 100%);
-            -webkit-mask-image: linear-gradient(to bottom, 
-                transparent 0%, 
-                black 40px, 
-                black calc(100% - 40px), 
-                transparent 100%);
+            mask-image: linear-gradient(to bottom,
+                    transparent 0%,
+                    black 40px,
+                    black calc(100% - 40px),
+                    transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom,
+                    transparent 0%,
+                    black 40px,
+                    black calc(100% - 40px),
+                    transparent 100%);
         }
 
         .col-list-inner {
@@ -238,8 +241,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             background: rgba(255, 255, 255, 0.92);
             border-radius: 12px;
             padding: 20px 24px;
-            box-shadow: 0 6px 16px rgba(3,32,71,0.08);
-            border-left: 5px solid rgba(255,193,7,0.9);
+            box-shadow: 0 6px 16px rgba(3, 32, 71, 0.08);
+            border-left: 5px solid rgba(255, 193, 7, 0.9);
             transition: all 0.3s ease;
             flex-shrink: 0;
             backdrop-filter: blur(6px);
@@ -300,7 +303,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             color: var(--primary);
             font-weight: 700;
             white-space: nowrap;
-            background: rgba(0,82,204,0.12);
+            background: rgba(0, 82, 204, 0.12);
             padding: 6px 14px;
             border-radius: 8px;
             flex-shrink: 0;
@@ -308,14 +311,14 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
 
         .tentative-badge {
             display: inline-block;
-            background: rgba(255,193,7,0.25);
+            background: rgba(255, 193, 7, 0.25);
             color: #856404;
             padding: 4px 10px;
             border-radius: 6px;
             font-size: 14px;
             font-weight: 700;
             text-align: center;
-            border: 2px dashed rgba(255,193,7,0.6);
+            border: 2px dashed rgba(255, 193, 7, 0.6);
             white-space: nowrap;
         }
 
@@ -325,10 +328,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             margin-top: 12px;
             display: block;
             font-weight: 700;
-            background: rgba(255,255,255,0.95);
+            background: rgba(255, 255, 255, 0.95);
             padding: 10px 16px;
             border-radius: 10px;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.06);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
         }
 
         .status-note .muted {
@@ -356,7 +359,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
         /* ========== RESPONSIVE STYLES ========== */
 
         /* Large Desktop (1920px and up) - Default styles already set */
-        
+
         /* Desktop (1440px to 1920px) */
         @media (max-width: 1920px) {
             body {
@@ -556,7 +559,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             .doctor-card {
                 padding: 14px 18px;
                 border-radius: 10px;
-                border-left: 4px solid rgba(255,193,7,0.9);
+                border-left: 4px solid rgba(255, 193, 7, 0.9);
             }
 
             .doctor-name,
@@ -703,7 +706,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 padding: 14px 16px;
                 gap: 10px;
                 border-radius: 10px;
-                border-top: 3px solid rgba(0,82,204,0.15);
+                border-top: 3px solid rgba(0, 82, 204, 0.15);
             }
 
             .col-header {
@@ -737,7 +740,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             .doctor-card {
                 padding: 10px 14px;
                 border-radius: 8px;
-                border-left: 3px solid rgba(255,193,7,0.9);
+                border-left: 3px solid rgba(255, 193, 7, 0.9);
             }
 
             .doctor-name,
@@ -952,8 +955,8 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
 
 
 
-<div class="container">
-    <?php
+    <div class="container">
+        <?php
         // Pre-group doctors into the two status columns for server-side initial render
         $groups = ['no medical' => [], 'on leave' => []];
         foreach ($all_doctors as $d) {
@@ -969,449 +972,459 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             }
             $groups[$key][] = $d;
         }
-    ?>
+        ?>
 
-    <div class="main-board">
-        <!-- No Clinic Column -->
-        <div class="status-col" data-status="no medical">
-            <div class="col-header">
-                <div class="col-header-left">
-                    <span>No Clinic Today</span>
-                    <span class="col-count">(<?= count($groups['no medical']) ?>)</span>
-                </div>
-                <div class="current-date" id="current-date-display">
-                    <!-- Date will be set by JavaScript -->
-                </div>
-            </div>
-            <div class="col-list">
-                <div class="col-list-inner">
-                <?php foreach ($groups['no medical'] as $doctor): ?>
-                    <div class="doctor-card">
-                        <div class="doctor-name">
-                            <i class="doctor-icon bi bi-person-fill"></i>
-                            <span><?= htmlspecialchars($doctor['name']) ?></span>
-                        </div>
-                        <div class="doctor-specialization">
-                            <?= htmlspecialchars($doctor['department'] ?? 'General') ?>
-                        </div>
+        <div class="main-board">
+            <!-- No Clinic Column -->
+            <div class="status-col" data-status="no medical">
+                <div class="col-header">
+                    <div class="col-header-left">
+                        <span>No Clinic Today</span>
+                        <span class="col-count">(<?= count($groups['no medical']) ?>)</span>
                     </div>
-                <?php endforeach; ?>
-                </div>
-            </div>
-        </div>
-
-        <!-- On Leave Column -->
-        <div class="status-col" data-status="on leave">
-            <div class="col-header">
-                <div class="col-header-left">
-                    <span>On Leave</span>
-                    <span class="col-count">(<?= count($groups['on leave']) ?>)</span>
-                </div>
-                <div class="col-header-right">
-                    <div class="resumes-label">
-                        <i class="bi bi-calendar-check"></i>
-                        <span>Resumes</span>
+                    <div class="current-date" id="current-date-display">
+                        <!-- Date will be set by JavaScript -->
                     </div>
                 </div>
-            </div>
-            <div class="col-list">
-                <div class="col-list-inner">
-                <?php 
-                $onLeaveOnly = [];
-                $withResumeDates = [];
-                
-                foreach ($groups['on leave'] as $doctor) {
-                    if (!empty($doctor['resume_date'])) {
-                        $withResumeDates[] = $doctor;
-                    } else {
-                        $onLeaveOnly[] = $doctor;
-                    }
-                }
-                
-                foreach ($onLeaveOnly as $doctor): 
-                ?>
-                    <div class="doctor-card">
-                        <div class="doctor-name-row">
-                            <div class="doctor-name-left">
-                                <i class="doctor-icon bi bi-person-fill"></i>
-                                <span><?= htmlspecialchars($doctor['name']) ?></span>
-                            </div>
-                        </div>
-                        <div class="doctor-specialization">
-                            <?= htmlspecialchars($doctor['department'] ?? 'General') ?>
-                        </div>
-
-                        <?php if (!empty($doctor['remarks'])): ?>
-                            <div class="status-note">
-                                <span>Remarks:</span>
-                                <span class="muted"><?= htmlspecialchars($doctor['remarks']) ?></span>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                <?php endforeach; ?>
-
-                <?php 
-                foreach ($withResumeDates as $doctor): 
-                ?>
-                    <div class="doctor-card">
-                        <div class="doctor-name-row">
-                            <div class="doctor-name-left">
-                                <i class="doctor-icon bi bi-person-fill"></i>
-                                <span><?= htmlspecialchars($doctor['name']) ?></span>
-                            </div>
-                            <div class="resume-date-right">
-                                <?= date("M d, Y", strtotime($doctor['resume_date'])) ?>
-                            </div>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div class="doctor-specialization" style="margin-bottom: 0;">
-                                <?= htmlspecialchars($doctor['department'] ?? 'General') ?>
-                            </div>
-                            <?php if (!empty($doctor['is_tentative']) && $doctor['is_tentative'] == 1): ?>
-                                <div class="tentative-badge">
-                                    <i class="bi bi-calendar-question"></i> TENTATIVE
+                <div class="col-list">
+                    <div class="col-list-inner">
+                        <?php foreach ($groups['no medical'] as $doctor): ?>
+                            <div class="doctor-card">
+                                <div class="doctor-name">
+                                    <i class="doctor-icon bi bi-person-fill"></i>
+                                    <span><?= htmlspecialchars($doctor['name']) ?></span>
                                 </div>
-                            <?php endif; ?>
-                        </div>
-
-                        <?php if (!empty($doctor['remarks'])): ?>
-                            <div class="status-note">
-                                <span>Remarks:</span>
-                                <span class="muted"><?= htmlspecialchars($doctor['remarks']) ?></span>
+                                <div class="doctor-specialization">
+                                    <?= htmlspecialchars($doctor['department'] ?? 'General') ?>
+                                </div>
                             </div>
-                        <?php endif; ?>
+                        <?php endforeach; ?>
                     </div>
-                <?php endforeach; ?>
                 </div>
             </div>
+
+            <!-- On Leave Column -->
+            <div class="status-col" data-status="on leave">
+                <div class="col-header">
+                    <div class="col-header-left">
+                        <span>On Leave</span>
+                        <span class="col-count">(<?= count($groups['on leave']) ?>)</span>
+                    </div>
+                    <div class="col-header-right">
+                        <div class="resumes-label">
+                            <i class="bi bi-calendar-check"></i>
+                            <span>Resumes</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-list">
+                    <div class="col-list-inner">
+                        <?php
+                        $onLeaveOnly = [];
+                        $withResumeDates = [];
+
+                        foreach ($groups['on leave'] as $doctor) {
+                            if (!empty($doctor['resume_date'])) {
+                                $withResumeDates[] = $doctor;
+                            } else {
+                                $onLeaveOnly[] = $doctor;
+                            }
+                        }
+
+                        foreach ($onLeaveOnly as $doctor):
+                        ?>
+                            <div class="doctor-card">
+                                <div class="doctor-name-row">
+                                    <div class="doctor-name-left">
+                                        <i class="doctor-icon bi bi-person-fill"></i>
+                                        <span><?= htmlspecialchars($doctor['name']) ?></span>
+                                    </div>
+                                </div>
+                                <div class="doctor-specialization">
+                                    <?= htmlspecialchars($doctor['department'] ?? 'General') ?>
+                                </div>
+
+                                <?php if (!empty($doctor['remarks'])): ?>
+                                    <div class="status-note">
+                                        <span>Remarks:</span>
+                                        <span class="muted"><?= htmlspecialchars($doctor['remarks']) ?></span>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        <?php endforeach; ?>
+
+                        <?php
+                        foreach ($withResumeDates as $doctor):
+                        ?>
+                            <div class="doctor-card">
+                                <div class="doctor-name-row">
+                                    <div class="doctor-name-left">
+                                        <i class="doctor-icon bi bi-person-fill"></i>
+                                        <span><?= htmlspecialchars($doctor['name']) ?></span>
+                                    </div>
+                                    <div class="resume-date-right">
+                                        <?= date("M d, Y", strtotime($doctor['resume_date'])) ?>
+                                    </div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div class="doctor-specialization" style="margin-bottom: 0;">
+                                        <?= htmlspecialchars($doctor['department'] ?? 'General') ?>
+                                    </div>
+                                    <?php if (!empty($doctor['is_tentative']) && $doctor['is_tentative'] == 1): ?>
+                                        <div class="tentative-badge">
+                                            <i class="bi bi-calendar-question"></i> TENTATIVE
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+
+                                <?php if (!empty($doctor['remarks'])): ?>
+                                    <div class="status-note">
+                                        <span>Remarks:</span>
+                                        <span class="muted"><?= htmlspecialchars($doctor['remarks']) ?></span>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-</div>
+    </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-    // Update current date display
-    function updateCurrentDate() {
-        const dateOptions = {
-            timeZone: 'Asia/Manila',
-            year: 'numeric',
-            month: 'short',
-            day: '2-digit'
-        };
-        const dateDisplay = new Intl.DateTimeFormat('en-US', dateOptions).format(new Date());
-        const dateEl = document.getElementById('current-date-display');
-        if (dateEl) {
-            dateEl.textContent = dateDisplay;
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Update current date display
+        function updateCurrentDate() {
+            const dateOptions = {
+                timeZone: 'Asia/Manila',
+                year: 'numeric',
+                month: 'short',
+                day: '2-digit'
+            };
+            const dateDisplay = new Intl.DateTimeFormat('en-US', dateOptions).format(new Date());
+            const dateEl = document.getElementById('current-date-display');
+            if (dateEl) {
+                dateEl.textContent = dateDisplay;
+            }
         }
-    }
-    
-    // Update date immediately and every minute
-    updateCurrentDate();
-    setInterval(updateCurrentDate, 60000);
 
-    // Enhanced auto-scroll system for TV display
-    (function() {
-        const POLL_MS = 10000; // 10 seconds
-        let SCROLL_SPEED = <?= $display_settings['scroll_speed'] ?? 25 ?>; // pixels per second (from database)
-        let PAUSE_AT_TOP = <?= $display_settings['pause_at_top'] ?? 3000 ?>; // ms to pause at top (from database)
-        let PAUSE_AT_BOTTOM = <?= $display_settings['pause_at_bottom'] ?? 3000 ?>; // ms to pause at bottom (from database)
-        let lastData = null;
+        // Update date immediately and every minute
+        updateCurrentDate();
+        setInterval(updateCurrentDate, 60000);
 
-        function setupSmoothAutoScroll(listContainer) {
-            // Get the inner wrapper that will actually scroll
-            const list = listContainer.querySelector('.col-list-inner');
-            if (!list) return;
-            
-            const itemCount = list.children.length;
-            
-            if (itemCount === 0) return;
+        // Enhanced auto-scroll system for TV display
+        (function() {
+            const POLL_MS = 10000; // 10 seconds
+            let SCROLL_SPEED = <?= $display_settings['scroll_speed'] ?? 25 ?>; // pixels per second (from database)
+            let PAUSE_AT_TOP = <?= $display_settings['pause_at_top'] ?? 3000 ?>; // ms to pause at top (from database)
+            let PAUSE_AT_BOTTOM = <?= $display_settings['pause_at_bottom'] ?? 3000 ?>; // ms to pause at bottom (from database)
+            let lastData = null;
 
-            // Clear any existing animation
-            list.style.transform = 'translateY(0)';
-            
-            // Wait for DOM to render
-            setTimeout(() => {
-                let totalHeight = 0;
-                for (let i = 0; i < list.children.length; i++) {
-                    const card = list.children[i];
-                    totalHeight += card.offsetHeight + 12; // include gap
+            function setupSmoothAutoScroll(listContainer) {
+                // Get the inner wrapper that will actually scroll
+                const list = listContainer.querySelector('.col-list-inner');
+                if (!list) return;
+
+                const itemCount = list.children.length;
+
+                if (itemCount === 0) return;
+
+                // Clear any existing animation
+                list.style.transform = 'translateY(0)';
+
+                // Wait for DOM to render
+                setTimeout(() => {
+                    let totalHeight = 0;
+                    for (let i = 0; i < list.children.length; i++) {
+                        const card = list.children[i];
+                        totalHeight += card.offsetHeight + 12; // include gap
+                    }
+
+                    // Add padding from col-list-inner
+                    totalHeight += 24; // padding-top + padding-bottom
+
+                    const containerHeight = listContainer.offsetHeight || 600;
+                    const maxScroll = Math.max(totalHeight - containerHeight, 0);
+
+                    // If content fits in view, no need to scroll
+                    if (maxScroll <= 0) {
+                        list.style.transform = 'translateY(0)';
+                        return;
+                    }
+
+                    console.log('Auto-scroll setup:', {
+                        items: itemCount,
+                        totalHeight,
+                        containerHeight,
+                        maxScroll
+                    });
+
+                    let currentPos = 0;
+                    let direction = 1; // 1 for down, -1 for up
+                    let isPaused = true;
+                    let pauseStartTime = Date.now();
+
+                    function scrollFrame(timestamp) {
+                        // Handle pause at top
+                        if (isPaused) {
+                            if (Date.now() - pauseStartTime >= PAUSE_AT_TOP) {
+                                isPaused = false;
+                            } else {
+                                requestAnimationFrame(scrollFrame);
+                                return;
+                            }
+                        }
+
+                        // Scroll down
+                        if (direction === 1) {
+                            currentPos += SCROLL_SPEED / 60; // Convert to per-frame
+
+                            if (currentPos >= maxScroll) {
+                                currentPos = maxScroll;
+                                direction = -1;
+                                isPaused = true;
+                                pauseStartTime = Date.now();
+                            }
+                        }
+                        // Scroll up
+                        else {
+                            currentPos -= SCROLL_SPEED / 60;
+
+                            if (currentPos <= 0) {
+                                currentPos = 0;
+                                direction = 1;
+                                isPaused = true;
+                                pauseStartTime = Date.now();
+                            }
+                        }
+
+                        list.style.transform = `translateY(-${currentPos}px)`;
+                        requestAnimationFrame(scrollFrame);
+                    }
+
+                    // Start with pause at top
+                    pauseStartTime = Date.now();
+                    requestAnimationFrame(scrollFrame);
+                }, 200);
+            }
+
+            function buildDoctorCard(doc, isNoClinic) {
+                const card = document.createElement('div');
+                card.className = 'doctor-card';
+
+                if (isNoClinic) {
+                    const name = document.createElement('div');
+                    name.className = 'doctor-name';
+
+                    const icon = document.createElement('i');
+                    icon.className = 'doctor-icon bi bi-person-fill';
+                    const text = document.createElement('span');
+                    text.textContent = doc.name || '';
+
+                    name.appendChild(icon);
+                    name.appendChild(text);
+                    card.appendChild(name);
+                } else {
+                    const nameRow = document.createElement('div');
+                    nameRow.className = 'doctor-name-row';
+
+                    const nameLeft = document.createElement('div');
+                    nameLeft.className = 'doctor-name-left';
+
+                    const icon = document.createElement('i');
+                    icon.className = 'doctor-icon bi bi-person-fill';
+                    const text = document.createElement('span');
+                    text.textContent = doc.name || '';
+
+                    nameLeft.appendChild(icon);
+                    nameLeft.appendChild(text);
+                    nameRow.appendChild(nameLeft);
+
+                    if (doc.resume_date) {
+                        const resumeRight = document.createElement('div');
+                        resumeRight.className = 'resume-date-right';
+                        try {
+                            const d = new Date(doc.resume_date);
+                            resumeRight.textContent = d.toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: '2-digit'
+                            });
+                        } catch (e) {
+                            resumeRight.textContent = doc.resume_date;
+                        }
+                        nameRow.appendChild(resumeRight);
+                    }
+
+                    card.appendChild(nameRow);
                 }
-                
-                // Add padding from col-list-inner
-                totalHeight += 24; // padding-top + padding-bottom
 
-                const containerHeight = listContainer.offsetHeight || 600;
-                const maxScroll = Math.max(totalHeight - containerHeight, 0);
-                
-                // If content fits in view, no need to scroll
-                if (maxScroll <= 0) {
-                    list.style.transform = 'translateY(0)';
-                    return;
+                // Department row with tentative badge
+                const deptRow = document.createElement('div');
+                deptRow.style.display = 'flex';
+                deptRow.style.justifyContent = 'space-between';
+                deptRow.style.alignItems = 'center';
+
+                const specialization = document.createElement('div');
+                specialization.className = 'doctor-specialization';
+                specialization.style.marginBottom = '0';
+                specialization.textContent = doc.department || 'General';
+                deptRow.appendChild(specialization);
+
+                // Add tentative badge on the same line as department if applicable
+                if (!isNoClinic && doc.resume_date && doc.is_tentative == 1) {
+                    const tentativeBadge = document.createElement('div');
+                    tentativeBadge.className = 'tentative-badge';
+                    tentativeBadge.innerHTML = '<i class="bi bi-calendar-question"></i> TENTATIVE';
+                    deptRow.appendChild(tentativeBadge);
                 }
 
-                console.log('Auto-scroll setup:', {
-                    items: itemCount,
-                    totalHeight,
-                    containerHeight,
-                    maxScroll
+                card.appendChild(deptRow);
+
+                if (!isNoClinic && doc.remarks) {
+                    const note = document.createElement('div');
+                    note.className = 'status-note';
+                    note.innerHTML = '<span>Remarks:</span> <span class="muted">' + doc.remarks + '</span>';
+                    card.appendChild(note);
+                }
+
+                return card;
+            }
+
+            function updateBoard(data) {
+                if (!data) return;
+
+                const board = document.querySelector('.main-board');
+                if (!board) return;
+
+                // Update scroll settings if they've changed
+                if (data.display_settings) {
+                    SCROLL_SPEED = data.display_settings.scroll_speed || 25;
+                    PAUSE_AT_TOP = data.display_settings.pause_at_top || 3000;
+                    PAUSE_AT_BOTTOM = data.display_settings.pause_at_bottom || 3000;
+                }
+
+                try {
+                    if (JSON.stringify(data) === JSON.stringify(lastData)) return;
+                } catch (e) {}
+                lastData = data;
+
+                const groups = {
+                    'no medical': [],
+                    'on leave': []
+                };
+                (data.doctors || []).forEach(d => {
+                    const st = (d.status || '').toLowerCase();
+                    if (st === '' || st.indexOf('no medical') !== -1 || st.indexOf('no clinic') !== -1) {
+                        groups['no medical'].push(d);
+                    } else if (st.indexOf('leave') !== -1) {
+                        groups['on leave'].push(d);
+                    } else if (st.indexOf('schedule') !== -1 || st.indexOf('available') !== -1) {
+                        // skip
+                    } else {
+                        groups['no medical'].push(d);
+                    }
                 });
 
-                let currentPos = 0;
-                let direction = 1; // 1 for down, -1 for up
-                let isPaused = true;
-                let pauseStartTime = Date.now();
+                const cols = board.querySelectorAll('.status-col');
 
-                function scrollFrame(timestamp) {
-                    // Handle pause at top
-                    if (isPaused) {
-                        if (Date.now() - pauseStartTime >= PAUSE_AT_TOP) {
-                            isPaused = false;
-                        } else {
-                            requestAnimationFrame(scrollFrame);
-                            return;
+                // Update No Clinic column
+                const noClinicCol = cols[0];
+                if (noClinicCol) {
+                    const count = noClinicCol.querySelector('.col-count');
+                    if (count) count.textContent = '(' + groups['no medical'].length + ')';
+
+                    const list = noClinicCol.querySelector('.col-list');
+                    if (list) {
+                        const inner = list.querySelector('.col-list-inner');
+                        if (inner) {
+                            inner.innerHTML = '';
+                            groups['no medical'].forEach(doc => {
+                                inner.appendChild(buildDoctorCard(doc, true));
+                            });
                         }
+                        setupSmoothAutoScroll(list);
                     }
-
-                    // Scroll down
-                    if (direction === 1) {
-                        currentPos += SCROLL_SPEED / 60; // Convert to per-frame
-                        
-                        if (currentPos >= maxScroll) {
-                            currentPos = maxScroll;
-                            direction = -1;
-                            isPaused = true;
-                            pauseStartTime = Date.now();
-                        }
-                    } 
-                    // Scroll up
-                    else {
-                        currentPos -= SCROLL_SPEED / 60;
-                        
-                        if (currentPos <= 0) {
-                            currentPos = 0;
-                            direction = 1;
-                            isPaused = true;
-                            pauseStartTime = Date.now();
-                        }
-                    }
-
-                    list.style.transform = `translateY(-${currentPos}px)`;
-                    requestAnimationFrame(scrollFrame);
                 }
 
-                // Start with pause at top
-                pauseStartTime = Date.now();
-                requestAnimationFrame(scrollFrame);
-            }, 200);
-        }
-
-        function buildDoctorCard(doc, isNoClinic) {
-            const card = document.createElement('div');
-            card.className = 'doctor-card';
-            
-            if (isNoClinic) {
-                const name = document.createElement('div');
-                name.className = 'doctor-name';
-                
-                const icon = document.createElement('i'); 
-                icon.className = 'doctor-icon bi bi-person-fill';
-                const text = document.createElement('span'); 
-                text.textContent = doc.name || '';
-                
-                name.appendChild(icon);
-                name.appendChild(text);
-                card.appendChild(name);
-            } else {
-                const nameRow = document.createElement('div');
-                nameRow.className = 'doctor-name-row';
-                
-                const nameLeft = document.createElement('div');
-                nameLeft.className = 'doctor-name-left';
-                
-                const icon = document.createElement('i'); 
-                icon.className = 'doctor-icon bi bi-person-fill';
-                const text = document.createElement('span'); 
-                text.textContent = doc.name || '';
-                
-                nameLeft.appendChild(icon);
-                nameLeft.appendChild(text);
-                nameRow.appendChild(nameLeft);
-                
-                if (doc.resume_date) {
-                    const resumeRight = document.createElement('div');
-                    resumeRight.className = 'resume-date-right';
-                    try {
-                        const d = new Date(doc.resume_date);
-                        resumeRight.textContent = d.toLocaleDateString('en-US', {year:'numeric', month:'short', day:'2-digit'});
-                    } catch(e) {
-                        resumeRight.textContent = doc.resume_date;
+                // Update On Leave column
+                const onLeaveCol = cols[1];
+                if (onLeaveCol) {
+                    let headerRight = onLeaveCol.querySelector('.col-header-right');
+                    if (!headerRight) {
+                        headerRight = document.createElement('div');
+                        headerRight.className = 'col-header-right';
+                        const resumesLabel = document.createElement('div');
+                        resumesLabel.className = 'resumes-label';
+                        resumesLabel.innerHTML = '<i class="bi bi-calendar-check"></i><span>Resumes</span>';
+                        headerRight.appendChild(resumesLabel);
+                        const header = onLeaveCol.querySelector('.col-header');
+                        if (header) header.appendChild(headerRight);
                     }
-                    nameRow.appendChild(resumeRight);
-                }
-                
-                card.appendChild(nameRow);
-            }
 
-            // Department row with tentative badge
-            const deptRow = document.createElement('div');
-            deptRow.style.display = 'flex';
-            deptRow.style.justifyContent = 'space-between';
-            deptRow.style.alignItems = 'center';
-            
-            const specialization = document.createElement('div');
-            specialization.className = 'doctor-specialization';
-            specialization.style.marginBottom = '0';
-            specialization.textContent = doc.department || 'General';
-            deptRow.appendChild(specialization);
-            
-            // Add tentative badge on the same line as department if applicable
-            if (!isNoClinic && doc.resume_date && doc.is_tentative == 1) {
-                const tentativeBadge = document.createElement('div');
-                tentativeBadge.className = 'tentative-badge';
-                tentativeBadge.innerHTML = '<i class="bi bi-calendar-question"></i> TENTATIVE';
-                deptRow.appendChild(tentativeBadge);
-            }
-            
-            card.appendChild(deptRow);
+                    const count = onLeaveCol.querySelector('.col-count');
+                    if (count) count.textContent = '(' + groups['on leave'].length + ')';
 
-            if (!isNoClinic && doc.remarks) {
-                const note = document.createElement('div'); 
-                note.className = 'status-note';
-                note.innerHTML = '<span>Remarks:</span> <span class="muted">' + doc.remarks + '</span>';
-                card.appendChild(note);
-            }
-            
-            return card;
-        }
+                    const list = onLeaveCol.querySelector('.col-list');
+                    if (list) {
+                        const inner = list.querySelector('.col-list-inner');
+                        if (!inner) {
+                            // Create inner wrapper if it doesn't exist
+                            const newInner = document.createElement('div');
+                            newInner.className = 'col-list-inner';
+                            list.appendChild(newInner);
+                        }
 
-        function updateBoard(data) {
-            if (!data) return;
+                        const innerWrapper = list.querySelector('.col-list-inner');
+                        innerWrapper.innerHTML = '';
 
-            const board = document.querySelector('.main-board');
-            if (!board) return;
+                        const onLeaveOnly = [];
+                        const withResumeDates = [];
 
-            // Update scroll settings if they've changed
-            if (data.display_settings) {
-                SCROLL_SPEED = data.display_settings.scroll_speed || 25;
-                PAUSE_AT_TOP = data.display_settings.pause_at_top || 3000;
-                PAUSE_AT_BOTTOM = data.display_settings.pause_at_bottom || 3000;
-            }
-
-            try { if (JSON.stringify(data) === JSON.stringify(lastData)) return; } catch(e) {}
-            lastData = data;
-
-            const groups = { 'no medical': [], 'on leave': [] };
-            (data.doctors || []).forEach(d => {
-                const st = (d.status || '').toLowerCase();
-                if (st === '' || st.indexOf('no medical') !== -1 || st.indexOf('no clinic') !== -1) {
-                    groups['no medical'].push(d);
-                } else if (st.indexOf('leave') !== -1) {
-                    groups['on leave'].push(d);
-                } else if (st.indexOf('schedule') !== -1 || st.indexOf('available') !== -1) {
-                    // skip
-                } else {
-                    groups['no medical'].push(d);
-                }
-            });
-
-            const cols = board.querySelectorAll('.status-col');
-            
-            // Update No Clinic column
-            const noClinicCol = cols[0];
-            if (noClinicCol) {
-                const count = noClinicCol.querySelector('.col-count');
-                if (count) count.textContent = '(' + groups['no medical'].length + ')';
-                
-                const list = noClinicCol.querySelector('.col-list');
-                if (list) {
-                    const inner = list.querySelector('.col-list-inner');
-                    if (inner) {
-                        inner.innerHTML = '';
-                        groups['no medical'].forEach(doc => {
-                            inner.appendChild(buildDoctorCard(doc, true));
+                        groups['on leave'].forEach(doc => {
+                            if (doc.resume_date) {
+                                withResumeDates.push(doc);
+                            } else {
+                                onLeaveOnly.push(doc);
+                            }
                         });
+
+                        onLeaveOnly.forEach(doc => {
+                            innerWrapper.appendChild(buildDoctorCard(doc, false));
+                        });
+
+                        withResumeDates.forEach(doc => {
+                            innerWrapper.appendChild(buildDoctorCard(doc, false));
+                        });
+
+                        setupSmoothAutoScroll(list);
                     }
+                }
+            }
+
+            async function fetchLoop() {
+                try {
+                    const res = await fetch(window.location.pathname + '?ajax=1');
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    updateBoard(data);
+                } catch (e) {
+                    console.warn('Live update failed', e);
+                }
+            }
+
+            fetchLoop();
+            setInterval(fetchLoop, POLL_MS);
+
+            // Initialize scroll on page load
+            setTimeout(() => {
+                document.querySelectorAll('.col-list').forEach(list => {
                     setupSmoothAutoScroll(list);
-                }
-            }
-
-            // Update On Leave column
-            const onLeaveCol = cols[1];
-            if (onLeaveCol) {
-                let headerRight = onLeaveCol.querySelector('.col-header-right');
-                if (!headerRight) {
-                    headerRight = document.createElement('div');
-                    headerRight.className = 'col-header-right';
-                    const resumesLabel = document.createElement('div');
-                    resumesLabel.className = 'resumes-label';
-                    resumesLabel.innerHTML = '<i class="bi bi-calendar-check"></i><span>Resumes</span>';
-                    headerRight.appendChild(resumesLabel);
-                    const header = onLeaveCol.querySelector('.col-header');
-                    if (header) header.appendChild(headerRight);
-                }
-                
-                const count = onLeaveCol.querySelector('.col-count');
-                if (count) count.textContent = '(' + groups['on leave'].length + ')';
-                
-                const list = onLeaveCol.querySelector('.col-list');
-                if (list) {
-                    const inner = list.querySelector('.col-list-inner');
-                    if (!inner) {
-                        // Create inner wrapper if it doesn't exist
-                        const newInner = document.createElement('div');
-                        newInner.className = 'col-list-inner';
-                        list.appendChild(newInner);
-                    }
-                    
-                    const innerWrapper = list.querySelector('.col-list-inner');
-                    innerWrapper.innerHTML = '';
-                    
-                    const onLeaveOnly = [];
-                    const withResumeDates = [];
-                    
-                    groups['on leave'].forEach(doc => {
-                        if (doc.resume_date) {
-                            withResumeDates.push(doc);
-                        } else {
-                            onLeaveOnly.push(doc);
-                        }
-                    });
-                    
-                    onLeaveOnly.forEach(doc => {
-                        innerWrapper.appendChild(buildDoctorCard(doc, false));
-                    });
-                    
-                    withResumeDates.forEach(doc => {
-                        innerWrapper.appendChild(buildDoctorCard(doc, false));
-                    });
-
-                    setupSmoothAutoScroll(list);
-                }
-            }
-        }
-
-        async function fetchLoop() {
-            try {
-                const res = await fetch(window.location.pathname + '?ajax=1');
-                if (!res.ok) return;
-                const data = await res.json();
-                updateBoard(data);
-            } catch (e) { 
-                console.warn('Live update failed', e); 
-            }
-        }
-
-        fetchLoop();
-        setInterval(fetchLoop, POLL_MS);
-        
-        // Initialize scroll on page load
-        setTimeout(() => {
-            document.querySelectorAll('.col-list').forEach(list => {
-                setupSmoothAutoScroll(list);
-            });
-        }, 500);
-    })();
-</script>
+                });
+            }, 500);
+        })();
+    </script>
 </body>
+
 </html>
