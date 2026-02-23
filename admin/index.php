@@ -31,49 +31,37 @@ if (isset($_POST['save'])) {
     if ($appt_end === '') $appt_end = null;
     if ($remarks === '') $remarks = null;
 
-    // Validation: On Leave requires resume date AND remarks
-if ($status === 'On Leave') {
-
-    // Resume date required
-    if (empty($resume)) {
-        $_SESSION['error'] = 'Resume date is required for doctors on leave.';
-        header("Location: index.php");
-        exit;
+    if ($status === 'On Leave') {
+        if (empty($resume)) {
+            $_SESSION['error'] = 'Resume date is required for doctors on leave.';
+            header("Location: index.php");
+            exit;
+        }
+        $dateObj = DateTime::createFromFormat('Y-m-d', $resume);
+        if (!$dateObj || $dateObj->format('Y-m-d') !== $resume) {
+            $_SESSION['error'] = 'Invalid resume date format.';
+            header("Location: index.php");
+            exit;
+        }
+        $today = new DateTime();
+        $today->setTime(0, 0, 0);
+        if ($dateObj < $today) {
+            $error = 'Resume date cannot be in the past.';
+            $open_modal = true;
+        }
+        if (empty(trim($remarks))) {
+            $error = 'Remarks are required when doctor is On Leave.';
+            $open_modal = true;
+        }
     }
 
-    // Validate correct date format (Y-m-d)
-    $dateObj = DateTime::createFromFormat('Y-m-d', $resume);
-    if (!$dateObj || $dateObj->format('Y-m-d') !== $resume) {
-        $_SESSION['error'] = 'Invalid resume date format.';
-        header("Location: index.php");
-        exit;
-    }
-
-    // Prevent past dates
-    $today = new DateTime();
-    $today->setTime(0,0,0);
-    if ($dateObj < $today) {
-    $error = 'Resume date cannot be in the past.';
-    $open_modal = true;
-}
-
-    // Remarks required
-    if (empty(trim($remarks))) {
-    $error = 'Remarks are required when doctor is On Leave.';
-    $open_modal = true;
-}
-}
-
-    // Clear fields that don't apply to selected status
     if ($status !== 'On Leave') {
         $resume = null;
         $is_tentative = 0;
     }
 
-    // Always clear appointment times since we removed "On Schedule" option
     $appt_start = null;
     $appt_end = null;
-    
 
     if ($id == "") {
         $stmt = $conn->prepare(
@@ -90,7 +78,7 @@ if ($status === 'On Leave') {
     $stmt->execute();
     header("Location: index.php");
     exit;
-} 
+}
 
 /* DELETE */
 if (isset($_GET['delete'])) {
@@ -141,13 +129,8 @@ if ($search) {
 }
 
 $valid_sorts = ['name', 'department', 'status'];
-if (!in_array($sort, $valid_sorts)) {
-    $sort = 'name';
-}
-
-if ($order !== 'ASC' && $order !== 'DESC') {
-    $order = 'ASC';
-}
+if (!in_array($sort, $valid_sorts)) $sort = 'name';
+if ($order !== 'ASC' && $order !== 'DESC') $order = 'ASC';
 
 $query .= " ORDER BY $sort $order";
 
@@ -160,7 +143,7 @@ if ($search) {
     $result = $conn->query($query);
 }
 
-/* DISPLAY SETTINGS TABLE & HANDLING */
+/* DISPLAY SETTINGS */
 $conn->query("CREATE TABLE IF NOT EXISTS display_settings (
     id INT PRIMARY KEY AUTO_INCREMENT,
     scroll_speed INT DEFAULT 25,
@@ -169,50 +152,50 @@ $conn->query("CREATE TABLE IF NOT EXISTS display_settings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 )");
 
-// Initialize with default values if empty
 $settings_check = $conn->query("SELECT COUNT(*) as count FROM display_settings")->fetch_assoc();
 if ($settings_check['count'] == 0) {
     $conn->query("INSERT INTO display_settings (scroll_speed, pause_at_top, pause_at_bottom) VALUES (25, 3000, 3000)");
 }
 
-// Ensure remarks column exists in doctors table
 $col = $conn->query("SHOW COLUMNS FROM doctors LIKE 'remarks'")->fetch_assoc();
-if (!$col) {
-    $conn->query("ALTER TABLE doctors ADD COLUMN remarks TEXT NULL");
-}
+if (!$col) $conn->query("ALTER TABLE doctors ADD COLUMN remarks TEXT NULL");
 
-// Ensure doctors table has fields for appointment times
 $col = $conn->query("SHOW COLUMNS FROM doctors LIKE 'appt_start'")->fetch_assoc();
-if (!$col) {
-    $conn->query("ALTER TABLE doctors ADD COLUMN appt_start TIME NULL");
-}
-$col = $conn->query("SHOW COLUMNS FROM doctors LIKE 'appt_end'")->fetch_assoc();
-if (!$col) {
-    $conn->query("ALTER TABLE doctors ADD COLUMN appt_end TIME NULL");
-}
+if (!$col) $conn->query("ALTER TABLE doctors ADD COLUMN appt_start TIME NULL");
 
-// Ensure is_tentative column exists
+$col = $conn->query("SHOW COLUMNS FROM doctors LIKE 'appt_end'")->fetch_assoc();
+if (!$col) $conn->query("ALTER TABLE doctors ADD COLUMN appt_end TIME NULL");
+
 $col = $conn->query("SHOW COLUMNS FROM doctors LIKE 'is_tentative'")->fetch_assoc();
-if (!$col) {
-    $conn->query("ALTER TABLE doctors ADD COLUMN is_tentative TINYINT(1) DEFAULT 0");
-}
+if (!$col) $conn->query("ALTER TABLE doctors ADD COLUMN is_tentative TINYINT(1) DEFAULT 0");
 
 if (isset($_POST['save_display_settings'])) {
     $scroll_speed = intval($_POST['scroll_speed'] ?? 25);
-    $pause_top = intval($_POST['pause_at_top'] ?? 3000);
+    $pause_top    = intval($_POST['pause_at_top'] ?? 3000);
     $pause_bottom = intval($_POST['pause_at_bottom'] ?? 3000);
-    
-    // Ensure values are within reasonable ranges
+
     $scroll_speed = max(5, min(100, $scroll_speed));
-    $pause_top = max(1000, min(10000, $pause_top));
+    $pause_top    = max(1000, min(10000, $pause_top));
     $pause_bottom = max(1000, min(10000, $pause_bottom));
-    
+
     $conn->query("UPDATE display_settings SET scroll_speed=$scroll_speed, pause_at_top=$pause_top, pause_at_bottom=$pause_bottom WHERE id=1");
     header("Location: index.php");
     exit;
 }
 
 $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIMIT 1")->fetch_assoc();
+
+// Human-readable label lookups (used in the "Current Settings" summary)
+$speed_labels = [15 => 'Slow', 25 => 'Normal', 50 => 'Fast'];
+$pause_labels = [2000 => '2 seconds', 3000 => '3 seconds', 5000 => '5 seconds', 8000 => '8 seconds', 10000 => '10 seconds'];
+
+$current_speed = $display_settings['scroll_speed'] ?? 25;
+$current_top   = $display_settings['pause_at_top'] ?? 3000;
+$current_bottom = $display_settings['pause_at_bottom'] ?? 3000;
+
+$current_speed_label  = $speed_labels[$current_speed]  ?? $current_speed . ' px/s';
+$current_top_label    = $pause_labels[$current_top]    ?? ($current_top / 1000) . ' sec';
+$current_bottom_label = $pause_labels[$current_bottom] ?? ($current_bottom / 1000) . ' sec';
 ?>
 
 <!DOCTYPE html>
@@ -232,14 +215,14 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
             --success: #28a745;
             --danger: #dc3545;
             --muted: #f1f5f9;
-            --bg: linear-gradient(180deg,#f5f7fb 0%, #f8fafc 100%);
-            --surface: rgba(255,255,255,0.96);
+            --bg: linear-gradient(180deg, #f5f7fb 0%, #f8fafc 100%);
+            --surface: rgba(255, 255, 255, 0.96);
             --radius: 10px;
-            --shadow-1: 0 2px 8px rgba(3,32,71,0.06);
-            --shadow-2: 0 8px 30px rgba(3,32,71,0.08);
+            --shadow-1: 0 2px 8px rgba(3, 32, 71, 0.06);
+            --shadow-2: 0 8px 30px rgba(3, 32, 71, 0.08);
             --text: #052744;
-            --muted-text: rgba(5,39,68,0.6);
-            --transition: 240ms cubic-bezier(.2,.8,.2,1);
+            --muted-text: rgba(5, 39, 68, 0.6);
+            --transition: 240ms cubic-bezier(.2, .8, .2, 1);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -270,64 +253,34 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
             justify-content: space-between;
         }
 
-        .nav-left {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
+        .nav-left { display: flex; align-items: center; gap: 12px; }
 
         .nav-logo-left {
             height: 48px;
             width: auto;
             border-radius: 8px;
             padding: 4px;
-            background: rgba(255,255,255,0.15);
+            background: rgba(255, 255, 255, 0.15);
             transition: transform var(--transition);
         }
+        .nav-logo-left:hover { transform: translateY(-2px) scale(1.05); }
 
-        .nav-logo-left:hover {
-            transform: translateY(-2px) scale(1.05);
-        }
+        .navbar-brand { color: white; font-weight: 700; font-size: 20px; text-decoration: none; letter-spacing: -0.02em; }
 
-        .navbar-brand {
-            color: white;
-            font-weight: 700;
-            font-size: 20px;
-            text-decoration: none;
-            letter-spacing: -0.02em;
-        }
-
-        .nav-right {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .nav-right .text-white {
-            font-size: 14px;
-            opacity: 0.95;
-        }
+        .nav-right { display: flex; align-items: center; gap: 16px; }
+        .nav-right .text-white { font-size: 14px; opacity: 0.95; }
 
         .btn-outline-light {
-            border: 2px solid rgba(255,255,255,0.8);
+            border: 2px solid rgba(255, 255, 255, 0.8);
             color: white;
             padding: 8px 20px;
             border-radius: 8px;
             font-weight: 600;
             transition: all var(--transition);
         }
+        .btn-outline-light:hover { background: white; color: var(--primary); transform: translateY(-2px); }
 
-        .btn-outline-light:hover {
-            background: white;
-            color: var(--primary);
-            transform: translateY(-2px);
-        }
-
-        .container-fluid.mt-4 {
-            max-width: 1400px;
-            margin: 2rem auto !important;
-            padding: 0 2rem;
-        }
+        .container-fluid.mt-4 { max-width: 1400px; margin: 2rem auto !important; padding: 0 2rem; }
 
         .section-title {
             color: var(--primary);
@@ -338,10 +291,7 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
             align-items: center;
             gap: 12px;
         }
-
-        .section-title i {
-            font-size: 36px;
-        }
+        .section-title i { font-size: 36px; }
 
         .form-section, .table-section {
             background: white;
@@ -352,12 +302,7 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
             border-top: 4px solid var(--primary);
         }
 
-        .form-label {
-            color: var(--primary);
-            font-weight: 600;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
+        .form-label { color: var(--primary); font-weight: 600; margin-bottom: 8px; font-size: 14px; }
 
         .form-control, .form-select, textarea.form-control {
             border: 2px solid #e2e8f0;
@@ -366,10 +311,9 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
             transition: all var(--transition);
             font-size: 14px;
         }
-
         .form-control:focus, .form-select:focus, textarea.form-control:focus {
             border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(0,82,204,0.1);
+            box-shadow: 0 0 0 3px rgba(0, 82, 204, 0.1);
             outline: none;
         }
 
@@ -385,22 +329,11 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
             margin-top: 16px;
             font-size: 16px;
         }
+        .btn-save:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0, 82, 204, 0.3); }
 
-        .btn-save:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0,82,204,0.3);
-        }
+        .table-responsive { overflow-x: auto; margin-top: 20px; }
 
-        .table-responsive {
-            overflow-x: auto;
-            margin-top: 20px;
-        }
-
-        .table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0 8px;
-        }
+        .table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
 
         .table thead th {
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-600) 100%);
@@ -412,32 +345,16 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
             font-size: 14px;
             white-space: nowrap;
         }
-
-        .table thead th:first-child {
-            border-top-left-radius: 8px;
-        }
-
-        .table thead th:last-child {
-            border-top-right-radius: 8px;
-        }
+        .table thead th:first-child { border-top-left-radius: 8px; }
+        .table thead th:last-child  { border-top-right-radius: 8px; }
 
         .table tbody tr {
             background: white;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
             transition: all var(--transition);
         }
-
-        .table tbody tr:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 14px rgba(0,0,0,0.08);
-        }
-
-        .table tbody td {
-            padding: 16px;
-            border: none;
-            vertical-align: middle;
-            font-size: 14px;
-        }
+        .table tbody tr:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08); }
+        .table tbody td { padding: 16px; border: none; vertical-align: middle; font-size: 14px; }
 
         .status-badge {
             display: inline-flex;
@@ -448,29 +365,10 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
             font-weight: 700;
             font-size: 12px;
         }
-
-        .status-badge::before {
-            content: "";
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: currentColor;
-        }
-
-        .status-nomedical {
-            color: #6c757d;
-            background: rgba(108,117,125,0.1);
-        }
-
-        .status-onschedule {
-            color: var(--primary-600);
-            background: rgba(30,136,229,0.1);
-        }
-
-        .status-onleave {
-            color: var(--danger);
-            background: rgba(220,53,69,0.1);
-        }
+        .status-badge::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
+        .status-nomedical  { color: #6c757d; background: rgba(108, 117, 125, 0.1); }
+        .status-onschedule { color: var(--primary-600); background: rgba(30, 136, 229, 0.1); }
+        .status-onleave    { color: var(--danger); background: rgba(220, 53, 69, 0.1); }
 
         .btn-action {
             padding: 6px 14px;
@@ -482,67 +380,83 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
             transition: all var(--transition);
             font-weight: 600;
         }
+        .btn-edit   { background: var(--primary); color: white; }
+        .btn-edit:hover  { background: var(--primary-600); color: white; transform: translateY(-2px); }
+        .btn-delete { background: var(--danger); color: white; }
+        .btn-delete:hover { background: #c82333; color: white; transform: translateY(-2px); }
 
-        .btn-edit {
-            background: var(--primary);
-            color: white;
-        }
-
-        .btn-edit:hover {
-            background: var(--primary-600);
-            color: white;
-            transform: translateY(-2px);
-        }
-
-        .btn-delete {
-            background: var(--danger);
-            color: white;
-        }
-
-        .btn-delete:hover {
-            background: #c82333;
-            color: white;
-            transform: translateY(-2px);
-        }
-
-        /* Display Settings Card */
+        /* ── Display Settings card ── */
         .settings-card {
             background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
             border: 2px solid var(--primary);
             border-radius: var(--radius);
-            padding: 24px;
+            padding: 28px;
             margin-bottom: 32px;
         }
 
         .settings-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 20px;
         }
 
-        .setting-item {
-            display: flex;
-            flex-direction: column;
-        }
+        .setting-item { display: flex; flex-direction: column; gap: 6px; }
 
-        .setting-value {
-            font-size: 28px;
+        /* Friendly dropdown styling */
+        .setting-select {
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px 16px;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--primary);
+            background: white;
+            cursor: pointer;
+            transition: all var(--transition);
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%230052CC' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            padding-right: 40px;
+        }
+        .setting-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0, 82, 204, 0.1); outline: none; }
+        .setting-select:hover { border-color: var(--primary); }
+
+        .setting-label-text {
+            font-size: 13px;
             font-weight: 700;
             color: var(--primary);
-            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
-        .setting-label {
+        .setting-hint {
             font-size: 12px;
-            text-transform: uppercase;
             color: var(--muted-text);
-            font-weight: 600;
-            letter-spacing: 0.5px;
         }
+
+        /* Current settings summary */
+        .current-summary {
+            margin-top: 20px;
+            padding: 16px 20px;
+            background: #f0f5ff;
+            border-radius: 10px;
+            border-left: 4px solid var(--primary);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            align-items: center;
+        }
+
+        .summary-item { display: flex; flex-direction: column; gap: 2px; }
+        .summary-item .s-label { font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--muted-text); letter-spacing: 0.5px; }
+        .summary-item .s-value { font-size: 20px; font-weight: 800; color: var(--primary); }
 
         .tentative-badge {
             display: inline-block;
-            background: rgba(255,193,7,0.2);
+            background: rgba(255, 193, 7, 0.2);
             color: #856404;
             padding: 4px 10px;
             border-radius: 6px;
@@ -551,58 +465,20 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
             margin-left: 8px;
         }
 
-        .form-check-label {
-            color: var(--text);
-            font-weight: 600;
-            cursor: pointer;
-        }
+        .form-check-label { color: var(--text); font-weight: 600; cursor: pointer; }
+        .form-check-input:checked { background-color: var(--accent); border-color: var(--accent); }
 
-        .form-check-input:checked {
-            background-color: var(--accent);
-            border-color: var(--accent);
-        }
-
-        /* Responsive */
         @media (max-width: 768px) {
-            .navbar .container-fluid {
-                flex-direction: column;
-                gap: 12px;
-                padding: 0 1rem;
-            }
-
-            .nav-left, .nav-right {
-                width: 100%;
-                justify-content: center;
-            }
-
-            .container-fluid.mt-4 {
-                padding: 0 1rem;
-            }
-
-            .form-section, .table-section {
-                padding: 20px;
-            }
-
-            .section-title {
-                font-size: 24px;
-            }
-
-            .settings-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .table thead th,
-            .table tbody td {
-                font-size: 12px;
-                padding: 12px 8px;
-            }
+            .navbar .container-fluid { flex-direction: column; gap: 12px; padding: 0 1rem; }
+            .nav-left, .nav-right { width: 100%; justify-content: center; }
+            .container-fluid.mt-4 { padding: 0 1rem; }
+            .form-section, .table-section { padding: 20px; }
+            .section-title { font-size: 24px; }
+            .settings-grid { grid-template-columns: 1fr; }
+            .table thead th, .table tbody td { font-size: 12px; padding: 12px 8px; }
         }
 
-        /* Collapsible sections */
-        .collapsible-section {
-            margin-bottom: 24px;
-        }
-
+        .collapsible-section { margin-bottom: 24px; }
         .collapsible-header {
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-600) 100%);
             color: white;
@@ -615,31 +491,14 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
             font-weight: 700;
             transition: all var(--transition);
         }
-
-        .collapsible-header:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(0,82,204,0.3);
-        }
-
-        .collapsible-header i {
-            transition: transform var(--transition);
-        }
-
-        .collapsible-header.active i {
-            transform: rotate(180deg);
-        }
-
-        .collapsible-content {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease;
-        }
-
-        .collapsible-content.active {
-            max-height: 2000px;
-        }
+        .collapsible-header:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0, 82, 204, 0.3); }
+        .collapsible-header i { transition: transform var(--transition); }
+        .collapsible-header.active i { transform: rotate(180deg); }
+        .collapsible-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
+        .collapsible-content.active { max-height: 2000px; }
     </style>
 </head>
+
 <body>
     <nav class="navbar">
         <div class="container-fluid">
@@ -649,7 +508,6 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                 </a>
                 <span class="navbar-brand">New Sinai MDI Hospital</span>
             </div>
-
             <div class="nav-right">
                 <span class="text-white">Welcome, <strong><?= htmlspecialchars($_SESSION['admin']) ?></strong></span>
                 <a href="logout.php" class="btn btn-outline-light btn-sm">
@@ -662,6 +520,7 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
     <div class="container-fluid mt-4">
         <div class="row">
             <div class="col-12">
+
                 <?php if (isset($_SESSION['error'])): ?>
                     <div class="alert alert-danger alert-dismissible fade show" role="alert">
                         <i class="bi bi-exclamation-triangle-fill"></i> <?= htmlspecialchars($_SESSION['error']) ?>
@@ -671,11 +530,10 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                 <?php endif; ?>
 
                 <h1 class="section-title">
-                    <i class="bi bi-gear-fill"></i>
-                    Admin Dashboard
+                    <i class="bi bi-gear-fill"></i> Admin Dashboard
                 </h1>
 
-                <!-- Display Settings -->
+                <!-- ── Display Scroll Settings ── -->
                 <div class="collapsible-section">
                     <div class="collapsible-header" onclick="toggleSection('display-settings')">
                         <span><i class="bi bi-display"></i> Display Scroll Settings</span>
@@ -685,32 +543,50 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                         <div class="settings-card mt-3">
                             <form method="POST">
                                 <div class="settings-grid">
+
+                                    <!-- Scroll Speed -->
                                     <div class="setting-item">
-                                        <label for="scroll_speed" class="form-label">
-                                            <i class="bi bi-speedometer2"></i> Scroll Speed (pixels/sec)
+                                        <label class="setting-label-text">
+                                            <i class="bi bi-speedometer2"></i> How fast should it scroll?
                                         </label>
-                                        <input type="number" class="form-control" id="scroll_speed" name="scroll_speed" 
-                                               value="<?= $display_settings['scroll_speed'] ?? 25 ?>" min="5" max="100" required>
-                                        <small class="text-muted">Range: 5-100 (default: 25)</small>
+                                        <select name="scroll_speed" class="setting-select">
+                                            <option value="15" <?= $current_speed == 15 ? 'selected' : '' ?>>🐢 Slow</option>
+                                            <option value="25" <?= $current_speed == 25 ? 'selected' : '' ?>>👍 Normal</option>
+                                            <option value="50" <?= $current_speed == 50 ? 'selected' : '' ?>>⚡ Fast</option>
+                                        </select>
+                                        <span class="setting-hint">How quickly the list moves on screen</span>
                                     </div>
 
+                                    <!-- Pause at Top -->
                                     <div class="setting-item">
-                                        <label for="pause_at_top" class="form-label">
-                                            <i class="bi bi-pause-circle"></i> Pause at Top (milliseconds)
+                                        <label class="setting-label-text">
+                                            <i class="bi bi-arrow-up-circle"></i> Wait time at the top
                                         </label>
-                                        <input type="number" class="form-control" id="pause_at_top" name="pause_at_top" 
-                                               value="<?= $display_settings['pause_at_top'] ?? 3000 ?>" min="1000" max="10000" step="500" required>
-                                        <small class="text-muted">Range: 1000-10000 (default: 3000)</small>
+                                        <select name="pause_at_top" class="setting-select">
+                                            <option value="2000"  <?= $current_top == 2000  ? 'selected' : '' ?>>2 seconds</option>
+                                            <option value="3000"  <?= $current_top == 3000  ? 'selected' : '' ?>>3 seconds</option>
+                                            <option value="5000"  <?= $current_top == 5000  ? 'selected' : '' ?>>5 seconds</option>
+                                            <option value="8000"  <?= $current_top == 8000  ? 'selected' : '' ?>>8 seconds</option>
+                                            <option value="10000" <?= $current_top == 10000 ? 'selected' : '' ?>>10 seconds</option>
+                                        </select>
+                                        <span class="setting-hint">How long it pauses before scrolling down</span>
                                     </div>
 
+                                    <!-- Pause at Bottom -->
                                     <div class="setting-item">
-                                        <label for="pause_at_bottom" class="form-label">
-                                            <i class="bi bi-pause-circle"></i> Pause at Bottom (milliseconds)
+                                        <label class="setting-label-text">
+                                            <i class="bi bi-arrow-down-circle"></i> Wait time at the bottom
                                         </label>
-                                        <input type="number" class="form-control" id="pause_at_bottom" name="pause_at_bottom" 
-                                               value="<?= $display_settings['pause_at_bottom'] ?? 3000 ?>" min="1000" max="10000" step="500" required>
-                                        <small class="text-muted">Range: 1000-10000 (default: 3000)</small>
+                                        <select name="pause_at_bottom" class="setting-select">
+                                            <option value="2000"  <?= $current_bottom == 2000  ? 'selected' : '' ?>>2 seconds</option>
+                                            <option value="3000"  <?= $current_bottom == 3000  ? 'selected' : '' ?>>3 seconds</option>
+                                            <option value="5000"  <?= $current_bottom == 5000  ? 'selected' : '' ?>>5 seconds</option>
+                                            <option value="8000"  <?= $current_bottom == 8000  ? 'selected' : '' ?>>8 seconds</option>
+                                            <option value="10000" <?= $current_bottom == 10000 ? 'selected' : '' ?>>10 seconds</option>
+                                        </select>
+                                        <span class="setting-hint">How long it pauses before scrolling back up</span>
                                     </div>
+
                                 </div>
 
                                 <button type="submit" name="save_display_settings" class="btn-save mt-3">
@@ -718,39 +594,37 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                                 </button>
                             </form>
 
-                            <div class="mt-4 p-3" style="background: #f8f9fa; border-radius: 8px; border-left: 4px solid var(--primary);">
-                                <strong><i class="bi bi-info-circle"></i> Current Settings:</strong>
-                                <div class="mt-2" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
-                                    <div>
-                                        <div class="setting-label">Scroll Speed</div>
-                                        <div class="setting-value"><?= $display_settings['scroll_speed'] ?? 25 ?> px/s</div>
-                                    </div>
-                                    <div>
-                                        <div class="setting-label">Pause at Top</div>
-                                        <div class="setting-value"><?= ($display_settings['pause_at_top'] ?? 3000) / 1000 ?> sec</div>
-                                    </div>
-                                    <div>
-                                        <div class="setting-label">Pause at Bottom</div>
-                                        <div class="setting-value"><?= ($display_settings['pause_at_bottom'] ?? 3000) / 1000 ?> sec</div>
-                                    </div>
+                            <!-- Current settings summary -->
+                            <div class="current-summary">
+                                <strong><i class="bi bi-info-circle"></i> Currently active:</strong>
+                                <div class="summary-item">
+                                    <span class="s-label">Scroll Speed</span>
+                                    <span class="s-value"><?= htmlspecialchars($current_speed_label) ?></span>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="s-label">Pause at Top</span>
+                                    <span class="s-value"><?= htmlspecialchars($current_top_label) ?></span>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="s-label">Pause at Bottom</span>
+                                    <span class="s-value"><?= htmlspecialchars($current_bottom_label) ?></span>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Doctor List Table -->
+                <!-- ── Doctor List Table ── -->
                 <div class="table-section">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
                         <h4 class="section-title" style="font-size: 24px; margin: 0;">
-                            <i class="bi bi-list-check"></i>
-                            Doctor List
+                            <i class="bi bi-list-check"></i> Doctor List
                         </h4>
 
                         <form method="GET" style="display: flex; gap: 10px; flex: 1; max-width: 400px;">
-                            <input type="text" name="search" class="form-control" 
-                                   placeholder="Search by name or department..." 
-                                   value="<?= htmlspecialchars($search) ?>">
+                            <input type="text" name="search" class="form-control"
+                                placeholder="Search by name or department..."
+                                value="<?= htmlspecialchars($search) ?>">
                             <button type="submit" class="btn btn-sm" style="background: var(--primary); color: white; padding: 0 20px;">
                                 <i class="bi bi-search"></i>
                             </button>
@@ -762,12 +636,12 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                         </form>
 
                         <div style="display: flex; gap: 10px;">
-                            <button type="button" class="btn btn-sm" onclick="showDoctorModal()" 
-                                    style="background: linear-gradient(135deg, var(--success) 0%, #28a745 100%); color: white; font-weight: 600; padding: 8px 16px; border: none;">
+                            <button type="button" class="btn btn-sm" onclick="showDoctorModal()"
+                                style="background: linear-gradient(135deg, var(--success) 0%, #28a745 100%); color: white; font-weight: 600; padding: 8px 16px; border: none;">
                                 <i class="bi bi-plus-circle"></i> Add New Doctor
                             </button>
-                            <button type="button" class="btn btn-sm btn-secondary" id="delete-selected-btn" 
-                                    onclick="deleteSelected()" style="display: none;">
+                            <button type="button" class="btn btn-sm btn-secondary" id="delete-selected-btn"
+                                onclick="deleteSelected()" style="display: none;">
                                 <i class="bi bi-trash"></i> Delete Selected
                             </button>
                             <button type="button" class="btn btn-sm btn-danger" onclick="showDeleteAllModal()">
@@ -788,24 +662,24 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                                         <input type="checkbox" id="select-all" onclick="toggleSelectAll()">
                                     </th>
                                     <th>
-                                        <a href="?sort=name&order=<?= $sort === 'name' && $order === 'ASC' ? 'DESC' : 'ASC' ?>&search=<?= urlencode($search) ?>" 
-                                           style="text-decoration: none; color: white;">
+                                        <a href="?sort=name&order=<?= $sort === 'name' && $order === 'ASC' ? 'DESC' : 'ASC' ?>&search=<?= urlencode($search) ?>"
+                                            style="text-decoration: none; color: white;">
                                             Name <?php if ($sort === 'name'): ?>
                                                 <i class="bi <?= $order === 'ASC' ? 'bi-arrow-up' : 'bi-arrow-down' ?>"></i>
                                             <?php endif; ?>
                                         </a>
                                     </th>
                                     <th>
-                                        <a href="?sort=department&order=<?= $sort === 'department' && $order === 'ASC' ? 'DESC' : 'ASC' ?>&search=<?= urlencode($search) ?>" 
-                                           style="text-decoration: none; color: white;">
+                                        <a href="?sort=department&order=<?= $sort === 'department' && $order === 'ASC' ? 'DESC' : 'ASC' ?>&search=<?= urlencode($search) ?>"
+                                            style="text-decoration: none; color: white;">
                                             Department <?php if ($sort === 'department'): ?>
                                                 <i class="bi <?= $order === 'ASC' ? 'bi-arrow-up' : 'bi-arrow-down' ?>"></i>
                                             <?php endif; ?>
                                         </a>
                                     </th>
                                     <th>
-                                        <a href="?sort=status&order=<?= $sort === 'status' && $order === 'ASC' ? 'DESC' : 'ASC' ?>&search=<?= urlencode($search) ?>" 
-                                           style="text-decoration: none; color: white;">
+                                        <a href="?sort=status&order=<?= $sort === 'status' && $order === 'ASC' ? 'DESC' : 'ASC' ?>&search=<?= urlencode($search) ?>"
+                                            style="text-decoration: none; color: white;">
                                             Status <?php if ($sort === 'status'): ?>
                                                 <i class="bi <?= $order === 'ASC' ? 'bi-arrow-up' : 'bi-arrow-down' ?>"></i>
                                             <?php endif; ?>
@@ -818,60 +692,55 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                             </thead>
                             <tbody>
                                 <?php while ($row = $result->fetch_assoc()): ?>
-                                <tr>
-                                    <td>
-                                        <input type="checkbox" class="doctor-checkbox" value="<?= $row['id'] ?>">
-                                    </td>
-                                    <td><?= htmlspecialchars($row['name']) ?></td>
-                                    <td><?= htmlspecialchars($row['department']) ?></td>
-                                    <td>
-                                        <?php
-                                        $status_text = trim($row['status'] ?? '');
-                                        $low = strtolower(preg_replace('/\s+/', ' ', $status_text));
-
-                                        if ($low === '' || in_array($low, ['not available','no clinic','no medical'])) {
-                                            $label = 'No Medical';
-                                            $badge_class = 'status-nomedical';
-                                        } elseif (in_array($low, ['available','on schedule'])) {
-                                            $label = 'On Schedule';
-                                            $badge_class = 'status-onschedule';
-                                        } elseif (strpos($low, 'leave') !== false) {
-                                            $label = 'On Leave';
-                                            $badge_class = 'status-onleave';
-                                        } else {
-                                            $label = $low ? ucwords($low) : 'No Medical';
-                                            $badge_class = 'status-nomedical';
-                                        }
-
-                                        echo '<span class="status-badge ' . $badge_class . '">' . htmlspecialchars($label) . '</span>';
-                                        ?>
-                                    </td>
-                                    <td>
-                                        <?php if ($row['resume_date']): ?>
-                                            <?= date('M d, Y', strtotime($row['resume_date'])) ?>
-                                            <?php if ($row['is_tentative']): ?>
-                                                <span class="tentative-badge">TENTATIVE</span>
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox" class="doctor-checkbox" value="<?= $row['id'] ?>">
+                                        </td>
+                                        <td><?= htmlspecialchars($row['name']) ?></td>
+                                        <td><?= htmlspecialchars($row['department']) ?></td>
+                                        <td>
+                                            <?php
+                                            $status_text = trim($row['status'] ?? '');
+                                            $low = strtolower(preg_replace('/\s+/', ' ', $status_text));
+                                            if ($low === '' || in_array($low, ['not available', 'no clinic', 'no medical'])) {
+                                                $label = 'No Medical'; $badge_class = 'status-nomedical';
+                                            } elseif (in_array($low, ['available', 'on schedule'])) {
+                                                $label = 'On Schedule'; $badge_class = 'status-onschedule';
+                                            } elseif (strpos($low, 'leave') !== false) {
+                                                $label = 'On Leave'; $badge_class = 'status-onleave';
+                                            } else {
+                                                $label = $low ? ucwords($low) : 'No Medical'; $badge_class = 'status-nomedical';
+                                            }
+                                            echo '<span class="status-badge ' . $badge_class . '">' . htmlspecialchars($label) . '</span>';
+                                            ?>
+                                        </td>
+                                        <td>
+                                            <?php if ($row['resume_date']): ?>
+                                                <?= date('M d, Y', strtotime($row['resume_date'])) ?>
+                                                <?php if ($row['is_tentative']): ?>
+                                                    <span class="tentative-badge">TENTATIVE</span>
+                                                <?php endif; ?>
+                                            <?php else: ?>
+                                                -
                                             <?php endif; ?>
-                                        <?php else: ?>
-                                            -
-                                        <?php endif; ?>
-                                    </td>
-                                    <td><?= htmlspecialchars($row['remarks'] ?? '-') ?></td>
-                                    <td>
-                                        <a href="javascript:void(0)" onclick="editDoctor(<?= $row['id'] ?>, '<?= addslashes($row['name']) ?>', '<?= $row['department'] ?>', '<?= $row['status'] ?>', '<?= $row['resume_date'] ?? '' ?>', '<?= addslashes($row['remarks'] ?? '') ?>', <?= $row['is_tentative'] ?? 0 ?>)" class="btn-action btn-edit">
-                                            <i class="bi bi-pencil"></i> Edit
-                                        </a>
-                                        <a href="?delete=<?= $row['id'] ?>" class="btn-action btn-delete" 
-                                           onclick="return confirm('Delete this doctor?')">
-                                            <i class="bi bi-trash"></i> Delete
-                                        </a>
-                                    </td>
-                                </tr>
+                                        </td>
+                                        <td><?= htmlspecialchars($row['remarks'] ?? '-') ?></td>
+                                        <td>
+                                            <a href="javascript:void(0)" onclick="editDoctor(<?= $row['id'] ?>, '<?= addslashes($row['name']) ?>', '<?= $row['department'] ?>', '<?= $row['status'] ?>', '<?= $row['resume_date'] ?? '' ?>', '<?= addslashes($row['remarks'] ?? '') ?>', <?= $row['is_tentative'] ?? 0 ?>)" class="btn-action btn-edit">
+                                                <i class="bi bi-pencil"></i> Edit
+                                            </a>
+                                            <a href="?delete=<?= $row['id'] ?>" class="btn-action btn-delete"
+                                                onclick="return confirm('Delete this doctor?')">
+                                                <i class="bi bi-trash"></i> Delete
+                                            </a>
+                                        </td>
+                                    </tr>
                                 <?php endwhile; ?>
                             </tbody>
                         </table>
                     </div>
                 </div>
+
             </div>
         </div>
     </div>
@@ -889,13 +758,11 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                 <div class="modal-body">
                     <form method="POST" id="doctor-form">
                         <input type="hidden" name="id" id="doctor-id" value="">
-
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="name" class="form-label">Doctor Name *</label>
                                 <input type="text" class="form-control" id="name" name="name" required>
                             </div>
-
                             <div class="col-md-6 mb-3">
                                 <label for="department" class="form-label">Department *</label>
                                 <select class="form-select" id="department" name="department" required>
@@ -909,7 +776,6 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                                 </select>
                             </div>
                         </div>
-
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="status" class="form-label">Status *</label>
@@ -918,19 +784,14 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                                     <option value="On Leave">On Leave</option>
                                 </select>
                             </div>
-
                             <div class="col-md-6 mb-3 leave-fields" style="display:none;">
                                 <label for="resume_date" class="form-label">Resume Date *</label>
                                 <input type="date" class="form-control" id="resume_date" name="resume_date">
-
-                                        <?php if (!empty($error)): ?>
-                                            <div class="text-danger mt-1">
-                                        <?= htmlspecialchars($error) ?>
-                                    </div>
+                                <?php if (!empty($error)): ?>
+                                    <div class="text-danger mt-1"><?= htmlspecialchars($error) ?></div>
                                 <?php endif; ?>
                             </div>
                         </div>
-
                         <div class="row leave-fields" style="display:none;">
                             <div class="col-12 mb-3">
                                 <div class="form-check">
@@ -942,15 +803,13 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                                 <small class="text-muted">Check this if the return date is not confirmed yet</small>
                             </div>
                         </div>
-
                         <div class="row">
                             <div class="col-12 mb-3">
                                 <label for="remarks" class="form-label">Remarks (Optional)</label>
-                                <textarea class="form-control" id="remarks" name="remarks" rows="2" 
-                                          placeholder="Add any additional notes or remarks..."></textarea>
+                                <textarea class="form-control" id="remarks" name="remarks" rows="2"
+                                    placeholder="Add any additional notes or remarks..."></textarea>
                             </div>
                         </div>
-
                         <div id="form-error" class="text-danger mb-3" style="display:none;"></div>
                     </form>
                 </div>
@@ -958,8 +817,8 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                         <i class="bi bi-x-circle"></i> Cancel
                     </button>
-                    <button type="submit" form="doctor-form" name="save" class="btn" 
-                            style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-600) 100%); color: white; font-weight: 700;">
+                    <button type="submit" form="doctor-form" name="save" class="btn"
+                        style="background: linear-gradient(135deg, var(--primary) 0%, var(--primary-600) 100%); color: white; font-weight: 700;">
                         <i class="bi bi-check-circle"></i> Save Doctor
                     </button>
                 </div>
@@ -983,8 +842,8 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <form method="POST" style="display: inline;">
-                        <button type="submit" name="delete_all" value="1" class="btn btn-danger" 
-                                id="confirm-delete-btn" disabled onclick="return validateDeleteAll()">
+                        <button type="submit" name="delete_all" value="1" class="btn btn-danger"
+                            id="confirm-delete-btn" disabled onclick="return validateDeleteAll()">
                             Delete ALL Doctors
                         </button>
                     </form>
@@ -995,21 +854,17 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Collapsible sections
         function toggleSection(id) {
             const content = document.getElementById(id);
             const header = content.previousElementSibling;
-            
             content.classList.toggle('active');
             header.classList.toggle('active');
         }
 
-        // Initialize - open display settings by default
         document.addEventListener('DOMContentLoaded', function() {
             toggleSection('display-settings');
         });
 
-        // Show/hide fields based on status
         const status = document.getElementById('status');
         const leaveFields = document.querySelectorAll('.leave-fields');
         const resumeDate = document.getElementById('resume_date');
@@ -1027,7 +882,6 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
         toggleFields();
         if (status) status.addEventListener('change', toggleFields);
 
-        // Form validation
         const form = document.getElementById('doctor-form');
         const errorEl = document.getElementById('form-error');
         if (form) {
@@ -1035,7 +889,6 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                 errorEl.style.display = 'none';
                 errorEl.textContent = '';
                 if (!status) return;
-                
                 if (status.value === 'On Leave') {
                     const resumeDateVal = resumeDate ? resumeDate.value : '';
                     if (!resumeDateVal) {
@@ -1048,13 +901,10 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
             });
         }
 
-        // Checkbox functions
         function toggleSelectAll() {
             const checkboxes = document.querySelectorAll('.doctor-checkbox');
             const selectAll = document.getElementById('select-all');
-            checkboxes.forEach(checkbox => {
-                checkbox.checked = selectAll.checked;
-            });
+            checkboxes.forEach(checkbox => { checkbox.checked = selectAll.checked; });
             updateDeleteButton();
         }
 
@@ -1071,18 +921,10 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
 
         function deleteSelected() {
             const checkboxes = document.querySelectorAll('.doctor-checkbox:checked');
-            if (checkboxes.length === 0) {
-                alert('Please select at least one doctor to delete');
-                return;
-            }
-
-            if (!confirm(`Delete ${checkboxes.length} doctor(s)?`)) {
-                return;
-            }
-
+            if (checkboxes.length === 0) { alert('Please select at least one doctor to delete'); return; }
+            if (!confirm(`Delete ${checkboxes.length} doctor(s)?`)) return;
             const form = document.getElementById('bulk-delete-form');
             form.querySelectorAll('input[name="selected_ids[]"]').forEach(el => el.remove());
-            
             Array.from(checkboxes).forEach(cb => {
                 const input = document.createElement('input');
                 input.type = 'hidden';
@@ -1090,7 +932,6 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                 input.value = cb.value;
                 form.appendChild(input);
             });
-            
             form.submit();
         }
 
@@ -1102,10 +943,8 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
                 updateDeleteButton();
             });
         });
-
         updateDeleteButton();
 
-        // Delete all modal
         function showDeleteAllModal() {
             const modal = new bootstrap.Modal(document.getElementById('deleteAllModal'));
             modal.show();
@@ -1118,38 +957,24 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
         });
 
         function validateDeleteAll() {
-            return document.getElementById('confirm-input').value === 'DELETE ALL' && 
-                   confirm('Are you absolutely sure?');
+            return document.getElementById('confirm-input').value === 'DELETE ALL' &&
+                confirm('Are you absolutely sure?');
         }
 
-        // Doctor Modal Functions
-        function showDoctorModal(id = null) {
+        function showDoctorModal() {
             const modal = new bootstrap.Modal(document.getElementById('doctorModal'));
-            
-            // Reset form
             document.getElementById('doctor-form').reset();
             document.getElementById('doctor-id').value = '';
             document.getElementById('form-error').style.display = 'none';
             document.getElementById('is_tentative').checked = false;
-            
-            // Update modal title
-            const title = document.getElementById('doctorModalTitle');
-            title.innerHTML = '<i class="bi bi-plus-circle"></i> Add New Doctor';
-            
-            // Reset field visibility
+            document.getElementById('doctorModalTitle').innerHTML = '<i class="bi bi-plus-circle"></i> Add New Doctor';
             toggleFields();
-            
             modal.show();
         }
 
         function editDoctor(id, name, department, status, resumeDate, remarks, isTentative) {
             const modal = new bootstrap.Modal(document.getElementById('doctorModal'));
-            
-            // Update modal title
-            const title = document.getElementById('doctorModalTitle');
-            title.innerHTML = '<i class="bi bi-pencil"></i> Edit Doctor Information';
-            
-            // Populate form fields
+            document.getElementById('doctorModalTitle').innerHTML = '<i class="bi bi-pencil"></i> Edit Doctor Information';
             document.getElementById('doctor-id').value = id;
             document.getElementById('name').value = name;
             document.getElementById('department').value = department;
@@ -1157,14 +982,10 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
             document.getElementById('resume_date').value = resumeDate;
             document.getElementById('remarks').value = remarks;
             document.getElementById('is_tentative').checked = isTentative == 1;
-            
-            // Update field visibility based on status
             toggleFields();
-            
             modal.show();
         }
 
-        // Auto-open modal if editing (when page loads with edit parameter)
         <?php if ($edit): ?>
         document.addEventListener('DOMContentLoaded', function() {
             editDoctor(
@@ -1179,13 +1000,13 @@ $display_settings = $conn->query("SELECT * FROM display_settings ORDER BY id LIM
         });
         <?php endif; ?>
     </script>
-    <?php if ($open_modal): ?>
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    var modal = new bootstrap.Modal(document.getElementById('doctorModal'));
-    modal.show();
-});
-</script>
-<?php endif; ?>
+
+    <?php if (!empty($open_modal)): ?>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            new bootstrap.Modal(document.getElementById('doctorModal')).show();
+        });
+    </script>
+    <?php endif; ?>
 </body>
 </html>

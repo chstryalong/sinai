@@ -32,7 +32,6 @@ foreach ($doctors_by_dept as $dname => $list) {
 // Provide a lightweight AJAX endpoint for live updates
 if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
     header('Content-Type: application/json; charset=utf-8');
-    // We return announcement, display settings, and the flat doctors list
     echo json_encode([
         'announcement' => $announcement,
         'doctors'      => $all_doctors,
@@ -55,7 +54,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
 
     <style>
         :root {
-            /* Design tokens / color palette */
             --primary: #0052CC;
             --primary-600: #1e88e5;
             --accent: #ffc107;
@@ -93,7 +91,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             position: relative;
             color: #052744;
             font-size: 20px;
-            /* Base font size for TV */
         }
 
         body::before {
@@ -214,7 +211,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             min-height: 0;
             flex: 1;
             position: relative;
-            /* Gradient mask to fade content at edges and prevent overlap appearance */
             mask-image: linear-gradient(to bottom,
                     transparent 0%,
                     black 40px,
@@ -341,623 +337,153 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             margin-left: 10px;
         }
 
-        /* Smooth scrolling styles */
-        .col-list-inner {
-            will-change: transform;
-        }
+        .col-list::-webkit-scrollbar { display: none; }
+        .col-list { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* Hide scrollbar */
-        .col-list::-webkit-scrollbar {
-            display: none;
-        }
-
-        .col-list {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        /* ========== RESPONSIVE STYLES ========== */
-
-        /* Large Desktop (1920px and up) - Default styles already set */
-
-        /* Desktop (1440px to 1920px) */
         @media (max-width: 1920px) {
-            body {
-                font-size: 18px;
-            }
-
-            .container {
-                padding: 20px;
-            }
-
-            .status-col {
-                padding: 24px 32px;
-            }
-
-            .col-header {
-                font-size: 28px;
-                padding-bottom: 14px;
-            }
-
-            .col-count {
-                font-size: 24px;
-            }
-
-            .current-date {
-                font-size: 22px;
-                padding: 7px 14px;
-            }
-
-            .resumes-label {
-                font-size: 24px;
-            }
-
-            .doctor-card {
-                padding: 18px 22px;
-            }
-
-            .doctor-name,
-            .doctor-name-left {
-                font-size: 24px;
-            }
-
-            .doctor-icon {
-                font-size: 22px;
-            }
-
-            .doctor-specialization {
-                font-size: 18px;
-                padding-left: 32px;
-            }
-
-            .resume-date-right {
-                font-size: 20px;
-                padding: 5px 12px;
-            }
-
-            .tentative-badge {
-                font-size: 14px;
-                padding: 3px 10px;
-            }
-
-            .status-note {
-                font-size: 16px;
-                padding: 9px 14px;
-            }
-
-            .status-note .muted {
-                font-size: 15px;
-            }
+            body { font-size: 18px; }
+            .container { padding: 20px; }
+            .status-col { padding: 24px 32px; }
+            .col-header { font-size: 28px; padding-bottom: 14px; }
+            .col-count { font-size: 24px; }
+            .current-date { font-size: 22px; padding: 7px 14px; }
+            .resumes-label { font-size: 24px; }
+            .doctor-card { padding: 18px 22px; }
+            .doctor-name, .doctor-name-left { font-size: 24px; }
+            .doctor-icon { font-size: 22px; }
+            .doctor-specialization { font-size: 18px; padding-left: 32px; }
+            .resume-date-right { font-size: 20px; padding: 5px 12px; }
+            .tentative-badge { font-size: 14px; padding: 3px 10px; }
+            .status-note { font-size: 16px; padding: 9px 14px; }
+            .status-note .muted { font-size: 15px; }
         }
 
-        /* Laptop (1024px to 1440px) */
         @media (max-width: 1440px) {
-            body {
-                font-size: 16px;
-            }
-
-            .container {
-                padding: 18px;
-            }
-
-            .main-board {
-                gap: 24px;
-            }
-
-            .status-col {
-                padding: 20px 28px;
-            }
-
-            .col-header {
-                font-size: 24px;
-                padding-bottom: 12px;
-            }
-
-            .col-count {
-                font-size: 20px;
-            }
-
-            .current-date {
-                font-size: 18px;
-                padding: 6px 12px;
-            }
-
-            .resumes-label {
-                font-size: 20px;
-            }
-
-            .resumes-label i {
-                font-size: 18px;
-            }
-
-            .doctor-card {
-                padding: 16px 20px;
-            }
-
-            .doctor-name,
-            .doctor-name-left {
-                font-size: 20px;
-            }
-
-            .doctor-icon {
-                font-size: 18px;
-            }
-
-            .doctor-specialization {
-                font-size: 16px;
-                padding-left: 28px;
-            }
-
-            .resume-date-right {
-                font-size: 16px;
-                padding: 4px 10px;
-            }
-
-            .tentative-badge {
-                font-size: 13px;
-                padding: 3px 9px;
-            }
-
-            .status-note {
-                font-size: 14px;
-                padding: 8px 12px;
-            }
-
-            .status-note .muted {
-                font-size: 13px;
-            }
+            body { font-size: 16px; }
+            .container { padding: 18px; }
+            .main-board { gap: 24px; }
+            .status-col { padding: 20px 28px; }
+            .col-header { font-size: 24px; padding-bottom: 12px; }
+            .col-count { font-size: 20px; }
+            .current-date { font-size: 18px; padding: 6px 12px; }
+            .resumes-label { font-size: 20px; }
+            .resumes-label i { font-size: 18px; }
+            .doctor-card { padding: 16px 20px; }
+            .doctor-name, .doctor-name-left { font-size: 20px; }
+            .doctor-icon { font-size: 18px; }
+            .doctor-specialization { font-size: 16px; padding-left: 28px; }
+            .resume-date-right { font-size: 16px; padding: 4px 10px; }
+            .tentative-badge { font-size: 13px; padding: 3px 9px; }
+            .status-note { font-size: 14px; padding: 8px 12px; }
+            .status-note .muted { font-size: 13px; }
         }
 
-        /* Tablet Landscape (900px to 1024px) */
         @media (max-width: 1024px) {
-            body {
-                font-size: 15px;
-            }
-
-            .container {
-                padding: 16px;
-            }
-
-            .main-board {
-                gap: 20px;
-                border-radius: 12px;
-            }
-
-            .status-col {
-                padding: 18px 24px;
-                border-radius: 12px;
-            }
-
-            .col-header {
-                font-size: 22px;
-                padding-bottom: 10px;
-                border-bottom: 2px solid var(--accent);
-            }
-
-            .col-count {
-                font-size: 18px;
-            }
-
-            .current-date {
-                font-size: 16px;
-                padding: 5px 10px;
-                border-radius: 8px;
-            }
-
-            .resumes-label {
-                font-size: 18px;
-            }
-
-            .resumes-label i {
-                font-size: 16px;
-            }
-
-            .col-list {
-                gap: 10px;
-            }
-
-            .doctor-card {
-                padding: 14px 18px;
-                border-radius: 10px;
-                border-left: 4px solid rgba(255, 193, 7, 0.9);
-            }
-
-            .doctor-name,
-            .doctor-name-left {
-                font-size: 18px;
-                gap: 8px;
-            }
-
-            .doctor-icon {
-                font-size: 16px;
-            }
-
-            .doctor-specialization {
-                font-size: 14px;
-                padding-left: 24px;
-            }
-
-            .resume-date-right {
-                font-size: 14px;
-                padding: 4px 8px;
-                border-radius: 6px;
-            }
-
-            .tentative-badge {
-                font-size: 12px;
-                padding: 3px 8px;
-            }
-
-            .status-note {
-                font-size: 13px;
-                padding: 7px 10px;
-                border-radius: 8px;
-            }
-
-            .status-note .muted {
-                font-size: 12px;
-                margin-left: 8px;
-            }
+            body { font-size: 15px; }
+            .container { padding: 16px; }
+            .main-board { gap: 20px; border-radius: 12px; }
+            .status-col { padding: 18px 24px; border-radius: 12px; }
+            .col-header { font-size: 22px; padding-bottom: 10px; border-bottom: 2px solid var(--accent); }
+            .col-count { font-size: 18px; }
+            .current-date { font-size: 16px; padding: 5px 10px; border-radius: 8px; }
+            .resumes-label { font-size: 18px; }
+            .resumes-label i { font-size: 16px; }
+            .doctor-card { padding: 14px 18px; border-radius: 10px; border-left: 4px solid rgba(255, 193, 7, 0.9); }
+            .doctor-name, .doctor-name-left { font-size: 18px; gap: 8px; }
+            .doctor-icon { font-size: 16px; }
+            .doctor-specialization { font-size: 14px; padding-left: 24px; }
+            .resume-date-right { font-size: 14px; padding: 4px 8px; border-radius: 6px; }
+            .tentative-badge { font-size: 12px; padding: 3px 8px; }
+            .status-note { font-size: 13px; padding: 7px 10px; border-radius: 8px; }
+            .status-note .muted { font-size: 12px; margin-left: 8px; }
         }
 
-        /* Tablet Portrait & Mobile Landscape (600px to 900px) */
         @media (max-width: 900px) {
-            body {
-                font-size: 14px;
-            }
-
-            .container {
-                padding: 12px;
-            }
-
-            .main-board {
-                grid-template-columns: 1fr;
-                gap: 16px;
-            }
-
-            .status-col {
-                padding: 16px 20px;
-            }
-
-            .col-header {
-                font-size: 20px;
-                padding-bottom: 10px;
-            }
-
-            .col-count {
-                font-size: 16px;
-            }
-
-            .current-date {
-                font-size: 14px;
-                padding: 4px 8px;
-            }
-
-            .resumes-label {
-                font-size: 16px;
-            }
-
-            .resumes-label i {
-                font-size: 14px;
-            }
-
-            .col-list {
-                gap: 8px;
-            }
-
-            .doctor-card {
-                padding: 12px 16px;
-            }
-
-            .doctor-name,
-            .doctor-name-left {
-                font-size: 16px;
-            }
-
-            .doctor-icon {
-                font-size: 14px;
-            }
-
-            .doctor-specialization {
-                font-size: 13px;
-                padding-left: 22px;
-            }
-
-            .doctor-name-row {
-                gap: 12px;
-            }
-
-            .resume-date-right {
-                font-size: 12px;
-                padding: 3px 6px;
-            }
-
-            .tentative-badge {
-                font-size: 11px;
-                padding: 2px 7px;
-            }
-
-            .status-note {
-                font-size: 12px;
-                padding: 6px 8px;
-            }
-
-            .status-note .muted {
-                font-size: 11px;
-            }
+            body { font-size: 14px; }
+            .container { padding: 12px; }
+            .main-board { grid-template-columns: 1fr; gap: 16px; }
+            .status-col { padding: 16px 20px; }
+            .col-header { font-size: 20px; padding-bottom: 10px; }
+            .col-count { font-size: 16px; }
+            .current-date { font-size: 14px; padding: 4px 8px; }
+            .resumes-label { font-size: 16px; }
+            .resumes-label i { font-size: 14px; }
+            .doctor-card { padding: 12px 16px; }
+            .doctor-name, .doctor-name-left { font-size: 16px; }
+            .doctor-icon { font-size: 14px; }
+            .doctor-specialization { font-size: 13px; padding-left: 22px; }
+            .doctor-name-row { gap: 12px; }
+            .resume-date-right { font-size: 12px; padding: 3px 6px; }
+            .tentative-badge { font-size: 11px; padding: 2px 7px; }
+            .status-note { font-size: 12px; padding: 6px 8px; }
+            .status-note .muted { font-size: 11px; }
         }
 
-        /* Mobile Portrait (480px to 600px) */
         @media (max-width: 600px) {
-            body {
-                font-size: 13px;
-            }
-
-            .container {
-                padding: 10px;
-            }
-
-            .main-board {
-                gap: 12px;
-                border-radius: 10px;
-            }
-
-            .status-col {
-                padding: 14px 16px;
-                gap: 10px;
-                border-radius: 10px;
-                border-top: 3px solid rgba(0, 82, 204, 0.15);
-            }
-
-            .col-header {
-                font-size: 18px;
-                padding-bottom: 8px;
-                gap: 8px;
-            }
-
-            .col-count {
-                font-size: 14px;
-            }
-
-            .current-date {
-                font-size: 12px;
-                padding: 3px 6px;
-            }
-
-            .resumes-label {
-                font-size: 14px;
-            }
-
-            .resumes-label i {
-                font-size: 12px;
-            }
-
-            .col-list {
-                gap: 8px;
-                padding-top: 6px;
-            }
-
-            .doctor-card {
-                padding: 10px 14px;
-                border-radius: 8px;
-                border-left: 3px solid rgba(255, 193, 7, 0.9);
-            }
-
-            .doctor-name,
-            .doctor-name-left {
-                font-size: 14px;
-                gap: 6px;
-            }
-
-            .doctor-icon {
-                font-size: 13px;
-            }
-
-            .doctor-specialization {
-                font-size: 11px;
-                padding-left: 19px;
-                margin-bottom: 6px;
-            }
-
-            .doctor-name-row {
-                gap: 10px;
-                margin-bottom: 6px;
-            }
-
-            .resume-date-right {
-                font-size: 10px;
-                padding: 2px 5px;
-            }
-
-            .tentative-badge {
-                font-size: 10px;
-                padding: 2px 6px;
-            }
-
-            .status-note {
-                font-size: 11px;
-                padding: 5px 7px;
-                margin-top: 8px;
-            }
-
-            .status-note .muted {
-                font-size: 10px;
-                margin-left: 6px;
-            }
+            body { font-size: 13px; }
+            .container { padding: 10px; }
+            .main-board { gap: 12px; border-radius: 10px; }
+            .status-col { padding: 14px 16px; gap: 10px; border-radius: 10px; border-top: 3px solid rgba(0, 82, 204, 0.15); }
+            .col-header { font-size: 18px; padding-bottom: 8px; gap: 8px; }
+            .col-count { font-size: 14px; }
+            .current-date { font-size: 12px; padding: 3px 6px; }
+            .resumes-label { font-size: 14px; }
+            .resumes-label i { font-size: 12px; }
+            .doctor-card { padding: 10px 14px; border-radius: 8px; border-left: 3px solid rgba(255, 193, 7, 0.9); }
+            .doctor-name, .doctor-name-left { font-size: 14px; gap: 6px; }
+            .doctor-icon { font-size: 13px; }
+            .doctor-specialization { font-size: 11px; padding-left: 19px; margin-bottom: 6px; }
+            .doctor-name-row { gap: 10px; margin-bottom: 6px; }
+            .resume-date-right { font-size: 10px; padding: 2px 5px; }
+            .tentative-badge { font-size: 10px; padding: 2px 6px; }
+            .status-note { font-size: 11px; padding: 5px 7px; margin-top: 8px; }
+            .status-note .muted { font-size: 10px; margin-left: 6px; }
         }
 
-        /* Small Mobile (up to 480px) */
         @media (max-width: 480px) {
-            body {
-                font-size: 12px;
-            }
-
-            .container {
-                padding: 8px;
-            }
-
-            .main-board {
-                gap: 10px;
-            }
-
-            .status-col {
-                padding: 12px 14px;
-                gap: 8px;
-            }
-
-            .col-header {
-                font-size: 16px;
-                padding-bottom: 8px;
-                gap: 6px;
-            }
-
-            .col-count {
-                font-size: 13px;
-            }
-
-            .current-date {
-                font-size: 11px;
-                padding: 3px 5px;
-            }
-
-            .resumes-label {
-                font-size: 13px;
-            }
-
-            .resumes-label i {
-                font-size: 11px;
-            }
-
-            .col-list {
-                gap: 7px;
-            }
-
-            .doctor-card {
-                padding: 9px 12px;
-            }
-
-            .doctor-name,
-            .doctor-name-left {
-                font-size: 13px;
-                gap: 5px;
-            }
-
-            .doctor-icon {
-                font-size: 12px;
-            }
-
-            .doctor-specialization {
-                font-size: 10px;
-                padding-left: 17px;
-                margin-bottom: 5px;
-            }
-
-            .doctor-name-row {
-                gap: 8px;
-                margin-bottom: 5px;
-            }
-
-            .resume-date-right {
-                font-size: 9px;
-                padding: 2px 4px;
-            }
-
-            .tentative-badge {
-                font-size: 9px;
-                padding: 2px 5px;
-            }
-
-            .status-note {
-                font-size: 10px;
-                padding: 4px 6px;
-                margin-top: 6px;
-            }
-
-            .status-note .muted {
-                font-size: 9px;
-                margin-left: 5px;
-            }
+            body { font-size: 12px; }
+            .container { padding: 8px; }
+            .main-board { gap: 10px; }
+            .status-col { padding: 12px 14px; gap: 8px; }
+            .col-header { font-size: 16px; padding-bottom: 8px; gap: 6px; }
+            .col-count { font-size: 13px; }
+            .current-date { font-size: 11px; padding: 3px 5px; }
+            .resumes-label { font-size: 13px; }
+            .resumes-label i { font-size: 11px; }
+            .doctor-card { padding: 9px 12px; }
+            .doctor-name, .doctor-name-left { font-size: 13px; gap: 5px; }
+            .doctor-icon { font-size: 12px; }
+            .doctor-specialization { font-size: 10px; padding-left: 17px; margin-bottom: 5px; }
+            .doctor-name-row { gap: 8px; margin-bottom: 5px; }
+            .resume-date-right { font-size: 9px; padding: 2px 4px; }
+            .tentative-badge { font-size: 9px; padding: 2px 5px; }
+            .status-note { font-size: 10px; padding: 4px 6px; margin-top: 6px; }
+            .status-note .muted { font-size: 9px; margin-left: 5px; }
         }
 
-        /* Extra Small Mobile (320px to 400px) */
         @media (max-width: 400px) {
-            .container {
-                padding: 6px;
-            }
-
-            .status-col {
-                padding: 10px 12px;
-            }
-
-            .col-header {
-                font-size: 14px;
-                padding-bottom: 6px;
-            }
-
-            .col-count {
-                font-size: 12px;
-            }
-
-            .current-date {
-                font-size: 10px;
-                padding: 2px 4px;
-            }
-
-            .resumes-label {
-                font-size: 12px;
-            }
-
-            .resumes-label i {
-                font-size: 10px;
-            }
-
-            .doctor-card {
-                padding: 8px 10px;
-            }
-
-            .doctor-name,
-            .doctor-name-left {
-                font-size: 12px;
-            }
-
-            .doctor-icon {
-                font-size: 11px;
-            }
-
-            .doctor-specialization {
-                font-size: 9px;
-                padding-left: 15px;
-            }
-
-            .resume-date-right {
-                font-size: 8px;
-                padding: 2px 3px;
-            }
-
-            .tentative-badge {
-                font-size: 8px;
-                padding: 2px 4px;
-            }
-
-            .status-note {
-                font-size: 9px;
-                padding: 4px 5px;
-            }
-
-            .status-note .muted {
-                font-size: 8px;
-            }
+            .container { padding: 6px; }
+            .status-col { padding: 10px 12px; }
+            .col-header { font-size: 14px; padding-bottom: 6px; }
+            .col-count { font-size: 12px; }
+            .current-date { font-size: 10px; padding: 2px 4px; }
+            .resumes-label { font-size: 12px; }
+            .resumes-label i { font-size: 10px; }
+            .doctor-card { padding: 8px 10px; }
+            .doctor-name, .doctor-name-left { font-size: 12px; }
+            .doctor-icon { font-size: 11px; }
+            .doctor-specialization { font-size: 9px; padding-left: 15px; }
+            .resume-date-right { font-size: 8px; padding: 2px 3px; }
+            .tentative-badge { font-size: 8px; padding: 2px 4px; }
+            .status-note { font-size: 9px; padding: 4px 5px; }
+            .status-note .muted { font-size: 8px; }
         }
     </style>
 </head>
 
 <body>
-
-
-
     <div class="container">
         <?php
-        // Pre-group doctors into the two status columns for server-side initial render
         $groups = ['no medical' => [], 'on leave' => []];
         foreach ($all_doctors as $d) {
             $low = strtolower(trim($d['status'] ?? ''));
@@ -982,9 +508,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                         <span>No Clinic Today</span>
                         <span class="col-count">(<?= count($groups['no medical']) ?>)</span>
                     </div>
-                    <div class="current-date" id="current-date-display">
-                        <!-- Date will be set by JavaScript -->
-                    </div>
+                    <div class="current-date" id="current-date-display"></div>
                 </div>
                 <div class="col-list">
                     <div class="col-list-inner">
@@ -1022,17 +546,12 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                         <?php
                         $onLeaveOnly = [];
                         $withResumeDates = [];
-
                         foreach ($groups['on leave'] as $doctor) {
-                            if (!empty($doctor['resume_date'])) {
-                                $withResumeDates[] = $doctor;
-                            } else {
-                                $onLeaveOnly[] = $doctor;
-                            }
+                            if (!empty($doctor['resume_date'])) $withResumeDates[] = $doctor;
+                            else $onLeaveOnly[] = $doctor;
                         }
 
-                        foreach ($onLeaveOnly as $doctor):
-                        ?>
+                        foreach ($onLeaveOnly as $doctor): ?>
                             <div class="doctor-card">
                                 <div class="doctor-name-row">
                                     <div class="doctor-name-left">
@@ -1040,10 +559,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                                         <span><?= htmlspecialchars($doctor['name']) ?></span>
                                     </div>
                                 </div>
-                                <div class="doctor-specialization">
-                                    <?= htmlspecialchars($doctor['department'] ?? 'General') ?>
-                                </div>
-
+                                <div class="doctor-specialization"><?= htmlspecialchars($doctor['department'] ?? 'General') ?></div>
                                 <?php if (!empty($doctor['remarks'])): ?>
                                     <div class="status-note">
                                         <span>Remarks:</span>
@@ -1051,11 +567,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                                     </div>
                                 <?php endif; ?>
                             </div>
-                        <?php endforeach; ?>
+                        <?php endforeach;
 
-                        <?php
-                        foreach ($withResumeDates as $doctor):
-                        ?>
+                        foreach ($withResumeDates as $doctor): ?>
                             <div class="doctor-card">
                                 <div class="doctor-name-row">
                                     <div class="doctor-name-left">
@@ -1076,7 +590,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                                         </div>
                                     <?php endif; ?>
                                 </div>
-
                                 <?php if (!empty($doctor['remarks'])): ?>
                                     <div class="status-note">
                                         <span>Remarks:</span>
@@ -1090,319 +603,270 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             </div>
         </div>
     </div>
-    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Update current date display
+        // ── Date display ──────────────────────────────────────────────────────────
         function updateCurrentDate() {
-            const dateOptions = {
+            const el = document.getElementById('current-date-display');
+            if (!el) return;
+            el.textContent = new Intl.DateTimeFormat('en-US', {
                 timeZone: 'Asia/Manila',
-                year: 'numeric',
-                month: 'short',
-                day: '2-digit'
-            };
-            const dateDisplay = new Intl.DateTimeFormat('en-US', dateOptions).format(new Date());
-            const dateEl = document.getElementById('current-date-display');
-            if (dateEl) {
-                dateEl.textContent = dateDisplay;
-            }
+                year: 'numeric', month: 'short', day: '2-digit'
+            }).format(new Date());
         }
-
-        // Update date immediately and every minute
         updateCurrentDate();
         setInterval(updateCurrentDate, 60000);
 
-        // Enhanced auto-scroll system for TV display
-        (function() {
-            const POLL_MS = 10000; // 10 seconds
-            let SCROLL_SPEED = <?= $display_settings['scroll_speed'] ?? 25 ?>; // pixels per second (from database)
-            let PAUSE_AT_TOP = <?= $display_settings['pause_at_top'] ?? 3000 ?>; // ms to pause at top (from database)
-            let PAUSE_AT_BOTTOM = <?= $display_settings['pause_at_bottom'] ?? 3000 ?>; // ms to pause at bottom (from database)
-            let lastData = null;
+        // ── Scroll system ─────────────────────────────────────────────────────────
+        (function () {
+            const POLL_MS = 10000;
 
-            function setupSmoothAutoScroll(listContainer) {
-                // Get the inner wrapper that will actually scroll
-                const list = listContainer.querySelector('.col-list-inner');
-                if (!list) return;
+            // Settings from PHP (live-updated when AJAX returns new values)
+            let SCROLL_SPEED  = <?= (int)($display_settings['scroll_speed']    ?? 25)   ?>;
+            let PAUSE_AT_TOP  = <?= (int)($display_settings['pause_at_top']    ?? 3000) ?>;
+            let PAUSE_AT_BOT  = <?= (int)($display_settings['pause_at_bottom'] ?? 3000) ?>;
 
-                const itemCount = list.children.length;
+            let lastDataStr = '';
 
-                if (itemCount === 0) return;
+            // Per-column scroll state (keyed by the .col-list element itself)
+            const scrollStates = new WeakMap();
 
-                // Clear any existing animation
-                list.style.transform = 'translateY(0)';
+            /**
+             * Start (or restart cleanly) the auto-scroll loop for ONE column.
+             * If a loop is already running for this column and the content
+             * hasn't changed, we leave it completely untouched.
+             *
+             * @param {HTMLElement} colList   – the .col-list wrapper
+             * @param {boolean}     forceReset – true only when content was rebuilt
+             */
+            function startScroll(colList, forceReset) {
+                const inner = colList.querySelector('.col-list-inner');
+                if (!inner || inner.children.length === 0) return;
 
-                // Wait for DOM to render
-                setTimeout(() => {
-                    let totalHeight = 0;
-                    for (let i = 0; i < list.children.length; i++) {
-                        const card = list.children[i];
-                        totalHeight += card.offsetHeight + 12; // include gap
+                // If already running and no content change, leave it alone
+                if (!forceReset && scrollStates.has(colList)) return;
+
+                // Cancel any old RAF loop for this column
+                const old = scrollStates.get(colList);
+                if (old && old.rafId) cancelAnimationFrame(old.rafId);
+
+                // Build fresh state
+                const state = {
+                    pos: 0,
+                    dir: 1,          // 1 = scrolling down, -1 = scrolling up
+                    pausing: true,
+                    pauseEnd: performance.now() + PAUSE_AT_TOP,
+                    rafId: null,
+                    maxScroll: 0
+                };
+                scrollStates.set(colList, state);
+
+                // Reset position to top
+                inner.style.transform = 'translateY(0)';
+
+                // Wait one frame so the browser has laid out the new content
+                requestAnimationFrame(() => {
+                    // Measure after layout
+                    let totalH = 0;
+                    for (const card of inner.children) {
+                        totalH += card.offsetHeight + 12; // 12 = gap
                     }
+                    totalH += 24; // padding-top + padding-bottom of inner
 
-                    // Add padding from col-list-inner
-                    totalHeight += 24; // padding-top + padding-bottom
+                    const containerH = colList.offsetHeight || 600;
+                    state.maxScroll = Math.max(totalH - containerH, 0);
 
-                    const containerHeight = listContainer.offsetHeight || 600;
-                    const maxScroll = Math.max(totalHeight - containerHeight, 0);
+                    if (state.maxScroll <= 0) return; // content fits – no scroll needed
 
-                    // If content fits in view, no need to scroll
-                    if (maxScroll <= 0) {
-                        list.style.transform = 'translateY(0)';
-                        return;
-                    }
+                    function tick(now) {
+                        const s = scrollStates.get(colList);
+                        if (!s) return; // state was cleared externally
 
-                    console.log('Auto-scroll setup:', {
-                        items: itemCount,
-                        totalHeight,
-                        containerHeight,
-                        maxScroll
-                    });
+                        if (s.pausing) {
+                            if (now >= s.pauseEnd) {
+                                s.pausing = false;
+                            }
+                            s.rafId = requestAnimationFrame(tick);
+                            return;
+                        }
 
-                    let currentPos = 0;
-                    let direction = 1; // 1 for down, -1 for up
-                    let isPaused = true;
-                    let pauseStartTime = Date.now();
+                        const step = SCROLL_SPEED / 60; // px per frame at ~60 fps
 
-                    function scrollFrame(timestamp) {
-                        // Handle pause at top
-                        if (isPaused) {
-                            if (Date.now() - pauseStartTime >= PAUSE_AT_TOP) {
-                                isPaused = false;
-                            } else {
-                                requestAnimationFrame(scrollFrame);
-                                return;
+                        if (s.dir === 1) {
+                            // Scrolling DOWN
+                            s.pos = Math.min(s.pos + step, s.maxScroll);
+                            if (s.pos >= s.maxScroll) {
+                                // Reached bottom – pause then reverse
+                                s.dir = -1;
+                                s.pausing = true;
+                                s.pauseEnd = now + PAUSE_AT_BOT;
+                            }
+                        } else {
+                            // Scrolling UP
+                            s.pos = Math.max(s.pos - step, 0);
+                            if (s.pos <= 0) {
+                                // Reached top – pause then reverse
+                                s.dir = 1;
+                                s.pausing = true;
+                                s.pauseEnd = now + PAUSE_AT_TOP;
                             }
                         }
 
-                        // Scroll down
-                        if (direction === 1) {
-                            currentPos += SCROLL_SPEED / 60; // Convert to per-frame
-
-                            if (currentPos >= maxScroll) {
-                                currentPos = maxScroll;
-                                direction = -1;
-                                isPaused = true;
-                                pauseStartTime = Date.now();
-                            }
-                        }
-                        // Scroll up
-                        else {
-                            currentPos -= SCROLL_SPEED / 60;
-
-                            if (currentPos <= 0) {
-                                currentPos = 0;
-                                direction = 1;
-                                isPaused = true;
-                                pauseStartTime = Date.now();
-                            }
-                        }
-
-                        list.style.transform = `translateY(-${currentPos}px)`;
-                        requestAnimationFrame(scrollFrame);
+                        inner.style.transform = `translateY(-${s.pos}px)`;
+                        s.rafId = requestAnimationFrame(tick);
                     }
 
-                    // Start with pause at top
-                    pauseStartTime = Date.now();
-                    requestAnimationFrame(scrollFrame);
-                }, 200);
+                    state.rafId = requestAnimationFrame(tick);
+                });
             }
 
-            function buildDoctorCard(doc, isNoClinic) {
+            // ── Card builders ─────────────────────────────────────────────────────
+            function buildNoClinicCard(doc) {
                 const card = document.createElement('div');
                 card.className = 'doctor-card';
 
-                if (isNoClinic) {
-                    const name = document.createElement('div');
-                    name.className = 'doctor-name';
+                const name = document.createElement('div');
+                name.className = 'doctor-name';
+                name.innerHTML = `<i class="doctor-icon bi bi-person-fill"></i><span>${escHtml(doc.name)}</span>`;
+                card.appendChild(name);
 
-                    const icon = document.createElement('i');
-                    icon.className = 'doctor-icon bi bi-person-fill';
-                    const text = document.createElement('span');
-                    text.textContent = doc.name || '';
+                const dept = document.createElement('div');
+                dept.className = 'doctor-specialization';
+                dept.textContent = doc.department || 'General';
+                card.appendChild(dept);
 
-                    name.appendChild(icon);
-                    name.appendChild(text);
-                    card.appendChild(name);
-                } else {
-                    const nameRow = document.createElement('div');
-                    nameRow.className = 'doctor-name-row';
+                return card;
+            }
 
-                    const nameLeft = document.createElement('div');
-                    nameLeft.className = 'doctor-name-left';
+            function buildOnLeaveCard(doc) {
+                const card = document.createElement('div');
+                card.className = 'doctor-card';
 
-                    const icon = document.createElement('i');
-                    icon.className = 'doctor-icon bi bi-person-fill';
-                    const text = document.createElement('span');
-                    text.textContent = doc.name || '';
+                const nameRow = document.createElement('div');
+                nameRow.className = 'doctor-name-row';
 
-                    nameLeft.appendChild(icon);
-                    nameLeft.appendChild(text);
-                    nameRow.appendChild(nameLeft);
+                const nameLeft = document.createElement('div');
+                nameLeft.className = 'doctor-name-left';
+                nameLeft.innerHTML = `<i class="doctor-icon bi bi-person-fill"></i><span>${escHtml(doc.name)}</span>`;
+                nameRow.appendChild(nameLeft);
 
-                    if (doc.resume_date) {
-                        const resumeRight = document.createElement('div');
-                        resumeRight.className = 'resume-date-right';
-                        try {
-                            const d = new Date(doc.resume_date);
-                            resumeRight.textContent = d.toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: '2-digit'
-                            });
-                        } catch (e) {
-                            resumeRight.textContent = doc.resume_date;
-                        }
-                        nameRow.appendChild(resumeRight);
+                if (doc.resume_date) {
+                    const resumeEl = document.createElement('div');
+                    resumeEl.className = 'resume-date-right';
+                    try {
+                        // Force parse as local date to avoid timezone shifts
+                        const [y, m, d] = doc.resume_date.split('-').map(Number);
+                        resumeEl.textContent = new Date(y, m - 1, d)
+                            .toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
+                    } catch (e) {
+                        resumeEl.textContent = doc.resume_date;
                     }
-
-                    card.appendChild(nameRow);
+                    nameRow.appendChild(resumeEl);
                 }
+                card.appendChild(nameRow);
 
-                // Department row with tentative badge
                 const deptRow = document.createElement('div');
-                deptRow.style.display = 'flex';
-                deptRow.style.justifyContent = 'space-between';
-                deptRow.style.alignItems = 'center';
+                deptRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;';
 
-                const specialization = document.createElement('div');
-                specialization.className = 'doctor-specialization';
-                specialization.style.marginBottom = '0';
-                specialization.textContent = doc.department || 'General';
-                deptRow.appendChild(specialization);
+                const dept = document.createElement('div');
+                dept.className = 'doctor-specialization';
+                dept.style.marginBottom = '0';
+                dept.textContent = doc.department || 'General';
+                deptRow.appendChild(dept);
 
-                // Add tentative badge on the same line as department if applicable
-                if (!isNoClinic && doc.resume_date && doc.is_tentative == 1) {
-                    const tentativeBadge = document.createElement('div');
-                    tentativeBadge.className = 'tentative-badge';
-                    tentativeBadge.innerHTML = '<i class="bi bi-calendar-question"></i> TENTATIVE';
-                    deptRow.appendChild(tentativeBadge);
+                if (doc.resume_date && doc.is_tentative == 1) {
+                    const badge = document.createElement('div');
+                    badge.className = 'tentative-badge';
+                    badge.innerHTML = '<i class="bi bi-calendar-question"></i> TENTATIVE';
+                    deptRow.appendChild(badge);
                 }
-
                 card.appendChild(deptRow);
 
-                if (!isNoClinic && doc.remarks) {
+                if (doc.remarks) {
                     const note = document.createElement('div');
                     note.className = 'status-note';
-                    note.innerHTML = '<span>Remarks:</span> <span class="muted">' + doc.remarks + '</span>';
+                    note.innerHTML = `<span>Remarks:</span> <span class="muted">${escHtml(doc.remarks)}</span>`;
                     card.appendChild(note);
                 }
 
                 return card;
             }
 
+            function escHtml(str) {
+                return String(str || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+            }
+
+            // ── Board updater ─────────────────────────────────────────────────────
             function updateBoard(data) {
                 if (!data) return;
 
-                const board = document.querySelector('.main-board');
-                if (!board) return;
-
-                // Update scroll settings if they've changed
+                // Update scroll settings
                 if (data.display_settings) {
                     SCROLL_SPEED = data.display_settings.scroll_speed || 25;
-                    PAUSE_AT_TOP = data.display_settings.pause_at_top || 3000;
-                    PAUSE_AT_BOTTOM = data.display_settings.pause_at_bottom || 3000;
+                    PAUSE_AT_TOP = data.display_settings.pause_at_top  || 3000;
+                    PAUSE_AT_BOT = data.display_settings.pause_at_bottom || 3000;
                 }
 
-                try {
-                    if (JSON.stringify(data) === JSON.stringify(lastData)) return;
-                } catch (e) {}
-                lastData = data;
+                // Bail out if nothing changed
+                const str = JSON.stringify(data.doctors);
+                if (str === lastDataStr) return;
+                lastDataStr = str;
 
-                const groups = {
-                    'no medical': [],
-                    'on leave': []
-                };
+                // Bucket doctors
+                const noClinic = [], onLeave = [];
                 (data.doctors || []).forEach(d => {
                     const st = (d.status || '').toLowerCase();
-                    if (st === '' || st.indexOf('no medical') !== -1 || st.indexOf('no clinic') !== -1) {
-                        groups['no medical'].push(d);
-                    } else if (st.indexOf('leave') !== -1) {
-                        groups['on leave'].push(d);
+                    if (st.indexOf('leave') !== -1) {
+                        onLeave.push(d);
                     } else if (st.indexOf('schedule') !== -1 || st.indexOf('available') !== -1) {
-                        // skip
+                        // skip – on schedule doctors are not shown
                     } else {
-                        groups['no medical'].push(d);
+                        noClinic.push(d);
                     }
                 });
 
-                const cols = board.querySelectorAll('.status-col');
+                const cols = document.querySelectorAll('.status-col');
 
-                // Update No Clinic column
+                // ── No Clinic column ──
                 const noClinicCol = cols[0];
                 if (noClinicCol) {
-                    const count = noClinicCol.querySelector('.col-count');
-                    if (count) count.textContent = '(' + groups['no medical'].length + ')';
+                    const countEl = noClinicCol.querySelector('.col-count');
+                    if (countEl) countEl.textContent = `(${noClinic.length})`;
 
-                    const list = noClinicCol.querySelector('.col-list');
-                    if (list) {
-                        const inner = list.querySelector('.col-list-inner');
-                        if (inner) {
-                            inner.innerHTML = '';
-                            groups['no medical'].forEach(doc => {
-                                inner.appendChild(buildDoctorCard(doc, true));
-                            });
-                        }
-                        setupSmoothAutoScroll(list);
+                    const listEl = noClinicCol.querySelector('.col-list');
+                    const innerEl = listEl && listEl.querySelector('.col-list-inner');
+                    if (innerEl) {
+                        innerEl.innerHTML = '';
+                        noClinic.forEach(d => innerEl.appendChild(buildNoClinicCard(d)));
+                        startScroll(listEl, true); // content changed – reset scroll
                     }
                 }
 
-                // Update On Leave column
+                // ── On Leave column ──
                 const onLeaveCol = cols[1];
                 if (onLeaveCol) {
-                    let headerRight = onLeaveCol.querySelector('.col-header-right');
-                    if (!headerRight) {
-                        headerRight = document.createElement('div');
-                        headerRight.className = 'col-header-right';
-                        const resumesLabel = document.createElement('div');
-                        resumesLabel.className = 'resumes-label';
-                        resumesLabel.innerHTML = '<i class="bi bi-calendar-check"></i><span>Resumes</span>';
-                        headerRight.appendChild(resumesLabel);
-                        const header = onLeaveCol.querySelector('.col-header');
-                        if (header) header.appendChild(headerRight);
-                    }
+                    const countEl = onLeaveCol.querySelector('.col-count');
+                    if (countEl) countEl.textContent = `(${onLeave.length})`;
 
-                    const count = onLeaveCol.querySelector('.col-count');
-                    if (count) count.textContent = '(' + groups['on leave'].length + ')';
-
-                    const list = onLeaveCol.querySelector('.col-list');
-                    if (list) {
-                        const inner = list.querySelector('.col-list-inner');
-                        if (!inner) {
-                            // Create inner wrapper if it doesn't exist
-                            const newInner = document.createElement('div');
-                            newInner.className = 'col-list-inner';
-                            list.appendChild(newInner);
-                        }
-
-                        const innerWrapper = list.querySelector('.col-list-inner');
-                        innerWrapper.innerHTML = '';
-
-                        const onLeaveOnly = [];
-                        const withResumeDates = [];
-
-                        groups['on leave'].forEach(doc => {
-                            if (doc.resume_date) {
-                                withResumeDates.push(doc);
-                            } else {
-                                onLeaveOnly.push(doc);
-                            }
-                        });
-
-                        onLeaveOnly.forEach(doc => {
-                            innerWrapper.appendChild(buildDoctorCard(doc, false));
-                        });
-
-                        withResumeDates.forEach(doc => {
-                            innerWrapper.appendChild(buildDoctorCard(doc, false));
-                        });
-
-                        setupSmoothAutoScroll(list);
+                    const listEl = onLeaveCol.querySelector('.col-list');
+                    const innerEl = listEl && listEl.querySelector('.col-list-inner');
+                    if (innerEl) {
+                        innerEl.innerHTML = '';
+                        const withDate = onLeave.filter(d => d.resume_date);
+                        const noDate   = onLeave.filter(d => !d.resume_date);
+                        noDate.forEach(d   => innerEl.appendChild(buildOnLeaveCard(d)));
+                        withDate.forEach(d => innerEl.appendChild(buildOnLeaveCard(d)));
+                        startScroll(listEl, true); // content changed – reset scroll
                     }
                 }
             }
 
+            // ── AJAX poll ─────────────────────────────────────────────────────────
             async function fetchLoop() {
                 try {
                     const res = await fetch(window.location.pathname + '?ajax=1');
@@ -1414,17 +878,17 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 }
             }
 
-            fetchLoop();
-            setInterval(fetchLoop, POLL_MS);
+            // ── Init ──────────────────────────────────────────────────────────────
+            // Kick off scrolling for the server-rendered content (no forceReset
+            // needed – these columns have never been started before)
+            window.addEventListener('load', () => {
+                document.querySelectorAll('.col-list').forEach(l => startScroll(l, true));
+            });
 
-            // Initialize scroll on page load
-            setTimeout(() => {
-                document.querySelectorAll('.col-list').forEach(list => {
-                    setupSmoothAutoScroll(list);
-                });
-            }, 500);
+            // First AJAX fetch after a short delay, then repeat
+            setTimeout(fetchLoop, 2000);
+            setInterval(fetchLoop, POLL_MS);
         })();
     </script>
 </body>
-
 </html>
