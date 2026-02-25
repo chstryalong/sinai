@@ -337,6 +337,21 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             margin-left: 10px;
         }
 
+        .leave-type-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            padding: 7px 14px;
+            border-radius: 20px;
+            font-size: 17px;
+            font-weight: 700;
+        }
+
+        .leave-type-badge i {
+            font-size: 16px;
+        }
+
         .col-list::-webkit-scrollbar { display: none; }
         .col-list { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -551,7 +566,17 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                             else $onLeaveOnly[] = $doctor;
                         }
 
-                        foreach ($onLeaveOnly as $doctor): ?>
+                        // Icon + color map for leave types
+                        $leave_icons = [
+                            'On Vacation' => ['icon' => 'bi-airplane-fill',    'color' => '#1e88e5', 'bg' => 'rgba(30,136,229,0.12)'],
+                            'Personal'    => ['icon' => 'bi-person-heart',     'color' => '#8e44ad', 'bg' => 'rgba(142,68,173,0.12)'],
+                            'Sick Leave'  => ['icon' => 'bi-thermometer-half', 'color' => '#dc3545', 'bg' => 'rgba(220,53,69,0.12)'],
+                        ];
+                        ?>
+                        <?php foreach ($onLeaveOnly as $doctor):
+                            $rm = trim($doctor['remarks'] ?? '');
+                            $li = $leave_icons[$rm] ?? ['icon' => 'bi-info-circle', 'color' => '#555', 'bg' => 'rgba(0,0,0,0.07)'];
+                        ?>
                             <div class="doctor-card">
                                 <div class="doctor-name-row">
                                     <div class="doctor-name-left">
@@ -560,16 +585,21 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                                     </div>
                                 </div>
                                 <div class="doctor-specialization"><?= htmlspecialchars($doctor['department'] ?? 'General') ?></div>
-                                <?php if (!empty($doctor['remarks'])): ?>
-                                    <div class="status-note">
-                                        <span>Remarks:</span>
-                                        <span class="muted"><?= htmlspecialchars($doctor['remarks']) ?></span>
+                                <?php if ($rm !== ''): ?>
+                                    <div style="margin-top:10px;">
+                                        <span style="font-size:14px;font-weight:600;color:#888;display:block;margin-bottom:4px;padding-left:2px;">Remarks:</span>
+                                        <div class="leave-type-badge" style="background:<?= $li['bg'] ?>; color:<?= $li['color'] ?>;">
+                                            <i class="bi <?= $li['icon'] ?>"></i> <?= htmlspecialchars($rm) ?>
+                                        </div>
                                     </div>
                                 <?php endif; ?>
                             </div>
                         <?php endforeach;
 
-                        foreach ($withResumeDates as $doctor): ?>
+                        foreach ($withResumeDates as $doctor):
+                            $rm = trim($doctor['remarks'] ?? '');
+                            $li = $leave_icons[$rm] ?? ['icon' => 'bi-info-circle', 'color' => '#555', 'bg' => 'rgba(0,0,0,0.07)'];
+                        ?>
                             <div class="doctor-card">
                                 <div class="doctor-name-row">
                                     <div class="doctor-name-left">
@@ -590,10 +620,12 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                                         </div>
                                     <?php endif; ?>
                                 </div>
-                                <?php if (!empty($doctor['remarks'])): ?>
-                                    <div class="status-note">
-                                        <span>Remarks:</span>
-                                        <span class="muted"><?= htmlspecialchars($doctor['remarks']) ?></span>
+                                <?php if ($rm !== ''): ?>
+                                    <div style="margin-top:10px;">
+                                        <span style="font-size:14px;font-weight:600;color:#888;display:block;margin-bottom:4px;padding-left:2px;">Remarks:</span>
+                                        <div class="leave-type-badge" style="background:<?= $li['bg'] ?>; color:<?= $li['color'] ?>;">
+                                            <i class="bi <?= $li['icon'] ?>"></i> <?= htmlspecialchars($rm) ?>
+                                        </div>
                                     </div>
                                 <?php endif; ?>
                             </div>
@@ -620,25 +652,27 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
 
         // ── Scroll system ─────────────────────────────────────────────────────────
         (function () {
-            const POLL_MS = 10000;
+            const DOCTOR_POLL_MS  = 10000; // how often to check for doctor changes
+            const SETTINGS_POLL_MS = 3000; // how often to check for settings changes (fast!)
 
-            // Settings from PHP (live-updated when AJAX returns new values)
-            let SCROLL_SPEED  = <?= (int)($display_settings['scroll_speed']    ?? 25)   ?>;
-            let PAUSE_AT_TOP  = <?= (int)($display_settings['pause_at_top']    ?? 3000) ?>;
-            let PAUSE_AT_BOT  = <?= (int)($display_settings['pause_at_bottom'] ?? 3000) ?>;
+            // Settings object — single source of truth, read directly by tick() every frame
+            const settings = {
+                speed:     <?= (int)($display_settings['scroll_speed']    ?? 25)   ?>,
+                pauseTop:  <?= (int)($display_settings['pause_at_top']    ?? 3000) ?>,
+                pauseBot:  <?= (int)($display_settings['pause_at_bottom'] ?? 3000) ?>
+            };
 
-            let lastDataStr = '';
+            let lastDataStr     = '';
+            let lastSettingsStr = JSON.stringify(settings);
 
             // Per-column scroll state (keyed by the .col-list element itself)
             const scrollStates = new WeakMap();
 
             /**
              * Start (or restart cleanly) the auto-scroll loop for ONE column.
-             * If a loop is already running for this column and the content
-             * hasn't changed, we leave it completely untouched.
              *
-             * @param {HTMLElement} colList   – the .col-list wrapper
-             * @param {boolean}     forceReset – true only when content was rebuilt
+             * @param {HTMLElement} colList    – the .col-list wrapper
+             * @param {boolean}     forceReset – true when content was rebuilt
              */
             function startScroll(colList, forceReset) {
                 const inner = colList.querySelector('.col-list-inner');
@@ -654,9 +688,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 // Build fresh state
                 const state = {
                     pos: 0,
-                    dir: 1,          // 1 = scrolling down, -1 = scrolling up
+                    dir: 1,       // 1 = scrolling down, -1 = scrolling up
                     pausing: true,
-                    pauseEnd: performance.now() + PAUSE_AT_TOP,
+                    pauseEnd: performance.now() + settings.pauseTop,
                     rafId: null,
                     maxScroll: 0
                 };
@@ -691,25 +725,26 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                             return;
                         }
 
-                        const step = SCROLL_SPEED / 60; // px per frame at ~60 fps
+                        // READ speed from settings object every frame — picks up changes instantly
+                        const step = settings.speed / 60; // px per frame at ~60 fps
 
                         if (s.dir === 1) {
                             // Scrolling DOWN
                             s.pos = Math.min(s.pos + step, s.maxScroll);
                             if (s.pos >= s.maxScroll) {
-                                // Reached bottom – pause then reverse
+                                // Reached bottom – pause using BOTTOM pause setting
                                 s.dir = -1;
                                 s.pausing = true;
-                                s.pauseEnd = now + PAUSE_AT_BOT;
+                                s.pauseEnd = now + settings.pauseBot;
                             }
                         } else {
                             // Scrolling UP
                             s.pos = Math.max(s.pos - step, 0);
                             if (s.pos <= 0) {
-                                // Reached top – pause then reverse
+                                // Reached top – pause using TOP pause setting
                                 s.dir = 1;
                                 s.pausing = true;
-                                s.pauseEnd = now + PAUSE_AT_TOP;
+                                s.pauseEnd = now + settings.pauseTop;
                             }
                         }
 
@@ -755,7 +790,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                     const resumeEl = document.createElement('div');
                     resumeEl.className = 'resume-date-right';
                     try {
-                        // Force parse as local date to avoid timezone shifts
                         const [y, m, d] = doc.resume_date.split('-').map(Number);
                         resumeEl.textContent = new Date(y, m - 1, d)
                             .toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
@@ -783,11 +817,28 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 }
                 card.appendChild(deptRow);
 
-                if (doc.remarks) {
-                    const note = document.createElement('div');
-                    note.className = 'status-note';
-                    note.innerHTML = `<span>Remarks:</span> <span class="muted">${escHtml(doc.remarks)}</span>`;
-                    card.appendChild(note);
+                // Leave type badge — icon + color per type
+                const leaveStyles = {
+                    'On Vacation': { icon: 'bi-airplane-fill',    color: '#1e88e5', bg: 'rgba(30,136,229,0.12)' },
+                    'Personal':    { icon: 'bi-person-heart',     color: '#8e44ad', bg: 'rgba(142,68,173,0.12)' },
+                    'Sick Leave':  { icon: 'bi-thermometer-half', color: '#dc3545', bg: 'rgba(220,53,69,0.12)'  },
+                };
+                const rm = (doc.remarks || '').trim();
+                if (rm) {
+                    const ls = leaveStyles[rm] || { icon: 'bi-info-circle', color: '#555', bg: 'rgba(0,0,0,0.07)' };
+                    const rmWrapper = document.createElement('div');
+                    rmWrapper.style.marginTop = '10px';
+                    const rmLabel = document.createElement('span');
+                    rmLabel.style.cssText = 'font-size:14px;font-weight:600;color:#888;display:block;margin-bottom:4px;padding-left:2px;';
+                    rmLabel.textContent = 'Remarks:';
+                    const badge = document.createElement('div');
+                    badge.className = 'leave-type-badge';
+                    badge.style.background = ls.bg;
+                    badge.style.color = ls.color;
+                    badge.innerHTML = `<i class="bi ${ls.icon}"></i> ${escHtml(rm)}`;
+                    rmWrapper.appendChild(rmLabel);
+                    rmWrapper.appendChild(badge);
+                    card.appendChild(rmWrapper);
                 }
 
                 return card;
@@ -805,14 +856,30 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             function updateBoard(data) {
                 if (!data) return;
 
-                // Update scroll settings
+                // ── Settings: update the shared object so tick() picks them up
+                // instantly on the very next frame — no loop restart needed
                 if (data.display_settings) {
-                    SCROLL_SPEED = data.display_settings.scroll_speed || 25;
-                    PAUSE_AT_TOP = data.display_settings.pause_at_top  || 3000;
-                    PAUSE_AT_BOT = data.display_settings.pause_at_bottom || 3000;
+                    const ds = data.display_settings;
+                    const newStr = JSON.stringify(ds);
+                    if (newStr !== lastSettingsStr) {
+                        lastSettingsStr = newStr;
+                        settings.speed    = parseInt(ds.scroll_speed)    || 25;
+                        settings.pauseTop = parseInt(ds.pause_at_top)    || 3000;
+                        settings.pauseBot = parseInt(ds.pause_at_bottom) || 3000;
+                        // Clamp any in-progress pause to the new (possibly shorter) duration
+                        document.querySelectorAll('.col-list').forEach(colList => {
+                            const s = scrollStates.get(colList);
+                            if (s && s.pausing) {
+                                const maxPause = s.dir === -1 ? settings.pauseBot : settings.pauseTop;
+                                if ((s.pauseEnd - performance.now()) > maxPause) {
+                                    s.pauseEnd = performance.now() + maxPause;
+                                }
+                            }
+                        });
+                    }
                 }
 
-                // Bail out if nothing changed
+                // ── Doctors: only rebuild DOM when data actually changed
                 const str = JSON.stringify(data.doctors);
                 if (str === lastDataStr) return;
                 lastDataStr = str;
@@ -866,8 +933,9 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
                 }
             }
 
-            // ── AJAX poll ─────────────────────────────────────────────────────────
-            async function fetchLoop() {
+            // ── AJAX polls ────────────────────────────────────────────────────────
+            // Single fetch that handles both settings and doctors
+            async function fetchAll() {
                 try {
                     const res = await fetch(window.location.pathname + '?ajax=1');
                     if (!res.ok) return;
@@ -879,15 +947,19 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
             }
 
             // ── Init ──────────────────────────────────────────────────────────────
-            // Kick off scrolling for the server-rendered content (no forceReset
-            // needed – these columns have never been started before)
             window.addEventListener('load', () => {
                 document.querySelectorAll('.col-list').forEach(l => startScroll(l, true));
             });
 
-            // First AJAX fetch after a short delay, then repeat
-            setTimeout(fetchLoop, 2000);
-            setInterval(fetchLoop, POLL_MS);
+            // Fast poll for settings (every 3 s) — catches speed/pause changes quickly
+            // Slow poll for doctors (every 10 s) — avoids unnecessary DOM rebuilds
+            // Both use the same endpoint; updateBoard() handles deduplication internally
+            setTimeout(fetchAll, 1500);
+            setInterval(fetchAll, SETTINGS_POLL_MS);   // 3 s — drives settings responsiveness
+
+            // Doctor-specific poll at a slower rate is already covered by the 3 s
+            // loop above (it checks doctors every call too), but we leave the faster
+            // cadence in place so settings feel instant to the admin.
         })();
     </script>
 </body>
