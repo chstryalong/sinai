@@ -525,7 +525,7 @@ setInterval(updateCurrentDate, 60000);
     const SETTINGS_POLL_MS = 3000;
 
     const settings = {
-        speed:    <?= (int)($display_settings['scroll_speed']    ?? 25) ?>,
+        speed:    <?= (int)($display_settings['scroll_speed']    ?? 30) ?>,
         pauseTop: <?= (int)($display_settings['pause_at_top']    ?? 3000) ?>,
         pauseBot: <?= (int)($display_settings['pause_at_bottom'] ?? 3000) ?>
     };
@@ -534,57 +534,91 @@ setInterval(updateCurrentDate, 60000);
     let lastSettingsStr = JSON.stringify(settings);
     const scrollStates  = new WeakMap();
 
+    // speed value = pixels per second (accurate, screen-independent)
+    // e.g. speed 30 = 30px/sec, speed 75 = 75px/sec
     function startScroll(colList, forceReset) {
         const inner = colList.querySelector('.col-list-inner');
         if (!inner || inner.children.length === 0) return;
-        if (!forceReset && scrollStates.has(colList)) return;
 
-        const old = scrollStates.get(colList);
-        if (old && old.rafId) cancelAnimationFrame(old.rafId);
+        const existing = scrollStates.get(colList);
+
+        // Compute maxScroll fresh
+        let totalH = 0;
+        for (const card of inner.children) totalH += card.offsetHeight + Math.round(window.innerHeight * 0.012);
+        totalH += Math.round(window.innerHeight * 0.03);
+        const containerH = colList.offsetHeight || window.innerHeight;
+        const maxScroll = Math.max(totalH - containerH, 0);
+
+        if (maxScroll <= 0) {
+            // Content fits — no scrolling needed, just show it static
+            if (existing && existing.rafId) cancelAnimationFrame(existing.rafId);
+            inner.style.transform = 'translateY(0)';
+            scrollStates.delete(colList);
+            return;
+        }
+
+        if (!forceReset && existing) {
+            // Just update maxScroll in case content height changed
+            existing.maxScroll = maxScroll;
+            return;
+        }
+
+        // Cancel existing animation
+        if (existing && existing.rafId) cancelAnimationFrame(existing.rafId);
 
         const state = {
-            pos: 0, dir: 1, pausing: true,
+            pos: 0,
+            dir: 1,
+            pausing: true,
             pauseEnd: performance.now() + settings.pauseTop,
-            rafId: null, maxScroll: 0
+            lastTime: null,
+            rafId: null,
+            maxScroll
         };
         scrollStates.set(colList, state);
         inner.style.transform = 'translateY(0)';
 
-        requestAnimationFrame(() => {
-            let totalH = 0;
-            for (const card of inner.children) totalH += card.offsetHeight + Math.round(window.innerHeight * 0.012);
-            totalH += Math.round(window.innerHeight * 0.03);
-            const containerH = colList.offsetHeight || 600;
-            state.maxScroll = Math.max(totalH - containerH, 0);
-            if (state.maxScroll <= 0) return;
+        function tick(now) {
+            const s = scrollStates.get(colList);
+            if (!s) return;
 
-            function tick(now) {
-                const s = scrollStates.get(colList);
-                if (!s) return;
-                if (s.pausing) {
-                    if (now >= s.pauseEnd) s.pausing = false;
-                    s.rafId = requestAnimationFrame(tick);
-                    return;
+            if (s.pausing) {
+                if (now >= s.pauseEnd) {
+                    s.pausing = false;
+                    s.lastTime = now;
                 }
-                const step = settings.speed / 60;
-                if (s.dir === 1) {
-                    s.pos = Math.min(s.pos + step, s.maxScroll);
-                    if (s.pos >= s.maxScroll) {
-                        s.dir = -1; s.pausing = true;
-                        s.pauseEnd = now + settings.pauseBot;
-                    }
-                } else {
-                    s.pos = Math.max(s.pos - step, 0);
-                    if (s.pos <= 0) {
-                        s.dir = 1; s.pausing = true;
-                        s.pauseEnd = now + settings.pauseTop;
-                    }
-                }
-                inner.style.transform = `translateY(-${s.pos}px)`;
                 s.rafId = requestAnimationFrame(tick);
+                return;
             }
-            state.rafId = requestAnimationFrame(tick);
-        });
+
+            // Delta-time based: pixels per second regardless of frame rate
+            const delta = s.lastTime ? Math.min(now - s.lastTime, 100) : 0;
+            s.lastTime = now;
+            const step = (settings.speed * delta) / 1000;
+
+            if (s.dir === 1) {
+                s.pos = Math.min(s.pos + step, s.maxScroll);
+                if (s.pos >= s.maxScroll) {
+                    s.pos = s.maxScroll;
+                    s.dir = -1;
+                    s.pausing = true;
+                    s.pauseEnd = now + settings.pauseBot;
+                }
+            } else {
+                s.pos = Math.max(s.pos - step, 0);
+                if (s.pos <= 0) {
+                    s.pos = 0;
+                    s.dir = 1;
+                    s.pausing = true;
+                    s.pauseEnd = now + settings.pauseTop;
+                }
+            }
+
+            inner.style.transform = `translateY(-${s.pos}px)`;
+            s.rafId = requestAnimationFrame(tick);
+        }
+
+        state.rafId = requestAnimationFrame(tick);
     }
 
     function escHtml(str) {
@@ -639,14 +673,16 @@ setInterval(updateCurrentDate, 60000);
     function updateBoard(data) {
         if (!data) return;
 
+        // ── Update settings silently (no scroll restart) ─────────────────
         if (data.display_settings) {
             const ds = data.display_settings;
             const newStr = JSON.stringify(ds);
             if (newStr !== lastSettingsStr) {
                 lastSettingsStr = newStr;
-                settings.speed    = parseInt(ds.scroll_speed)    || 25;
+                settings.speed    = parseInt(ds.scroll_speed)    || 30;
                 settings.pauseTop = parseInt(ds.pause_at_top)    || 3000;
                 settings.pauseBot = parseInt(ds.pause_at_bottom) || 3000;
+                // Clamp any active pause to new duration — no restart
                 document.querySelectorAll('.col-list').forEach(colList => {
                     const s = scrollStates.get(colList);
                     if (s && s.pausing) {
@@ -658,6 +694,7 @@ setInterval(updateCurrentDate, 60000);
             }
         }
 
+        // ── Only rebuild DOM if doctor data actually changed ───────────
         const str = JSON.stringify(data.doctors);
         if (str === lastDataStr) return;
         lastDataStr = str;
@@ -681,7 +718,7 @@ setInterval(updateCurrentDate, 60000);
             if (innerEl) {
                 innerEl.innerHTML = '';
                 noClinic.forEach(d => innerEl.appendChild(buildNoClinicCard(d)));
-                startScroll(listEl, true);
+                startScroll(listEl, true); // only fires when data changed
             }
         }
 
@@ -697,7 +734,7 @@ setInterval(updateCurrentDate, 60000);
                 const noDate   = onLeave.filter(d => !d.resume_date);
                 noDate.forEach(d   => innerEl.appendChild(buildOnLeaveCard(d)));
                 withDate.forEach(d => innerEl.appendChild(buildOnLeaveCard(d)));
-                startScroll(listEl, true);
+                startScroll(listEl, true); // only fires when data changed
             }
         }
     }
