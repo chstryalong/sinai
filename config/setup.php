@@ -114,9 +114,8 @@ try {
     if ($stmt->fetchColumn() == 0) {
         $pdo->exec("
             INSERT INTO users (username, password, is_superadmin)
-            VALUES ('admin', MD5('admin123'), 1)
+            VALUES ('admin', MD5('p@ssw0rd'), 1)
         ");
-        echo "✔ Default admin created (admin / admin123)<br>";
     }
 
     // Insert default scroll settings
