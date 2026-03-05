@@ -132,23 +132,6 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
 
-    // announcements (reserved for future use)
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS announcements (
-            id         INT(11)      NOT NULL AUTO_INCREMENT,
-            text       TEXT         DEFAULT NULL,
-            active     TINYINT(1)   DEFAULT 0,
-            font_size  INT(11)      DEFAULT 28,
-            speed      INT(11)      DEFAULT 18,
-            bg_color   VARCHAR(32)  DEFAULT '#fff8e1',
-            text_color VARCHAR(32)  DEFAULT '#052744',
-            updated_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    ");
-
-    echo "<p class='step ok'>✔ Tables created</p>";
-
     // ── Default data ──────────────────────────────────────────────────────────
 
     // Default superadmin account
@@ -168,25 +151,12 @@ try {
         echo "<p class='step ok'>✔ Default display settings added</p>";
     }
 
-    // Default announcement (inactive)
-    if ((int) $pdo->query("SELECT COUNT(*) FROM announcements")->fetchColumn() === 0) {
-        $pdo->exec("
-            INSERT INTO announcements (text, active, font_size, speed, bg_color, text_color)
-            VALUES ('Welcome to New Sinai MDI Hospital', 0, 28, 18, '#fff8e1', '#1d68aa')
-        ");
-        echo "<p class='step ok'>✔ Default announcement added</p>";
-    }
-
     // ── Success ───────────────────────────────────────────────────────────────
     ?>
 
     <div class="box">
         <h2 class="ok" style="margin-top:0;">🎉 Installation Complete</h2>
         <p>The database and all tables have been created successfully.</p>
-        <p><strong>Default login credentials:</strong></p>
-        <pre>Username : admin
-Password : Admin@2024!</pre>
-        <p>You can change this password after logging in via <em>Admin Panel → Change Password</em>.</p>
     </div>
 
     <div class="box danger">
