@@ -132,6 +132,20 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
 
+    // audit_log — tracks all changes made by admin users
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id           INT(11)      NOT NULL AUTO_INCREMENT,
+            performed_by VARCHAR(100) NOT NULL,
+            action       VARCHAR(80)  NOT NULL,
+            details      TEXT         DEFAULT NULL,
+            created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY idx_performed_by (performed_by),
+            KEY idx_created_at   (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+
     // announcements (reserved for future use)
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS announcements (

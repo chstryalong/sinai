@@ -37,6 +37,64 @@ const PAUSE_LABELS = [
 ];
 
 // ============================================================
+//  AUDIT LOG
+// ============================================================
+
+/**
+ * Write a single row to the audit_log table.
+ *
+ * @param mysqli $conn
+ * @param string $performedBy  Username of the actor
+ * @param string $action       Short machine-readable key  e.g. 'doctor_added'
+ * @param string $details      Human-readable description  e.g. 'Added Dr. Juan Dela Cruz (OPD)'
+ */
+function logAudit(mysqli $conn, string $performedBy, string $action, string $details): void
+{
+    $stmt = $conn->prepare(
+        "INSERT INTO audit_log (performed_by, action, details) VALUES (?, ?, ?)"
+    );
+    $stmt->bind_param('sss', $performedBy, $action, $details);
+    $stmt->execute();
+}
+
+/**
+ * GET  ?ajax=audit_log  — paginated audit log (superadmin only)
+ */
+function ajaxGetAuditLog(mysqli $conn, bool $isSuperadmin): never
+{
+    if (!$isSuperadmin) {
+        jsonResponse(['ok' => false, 'error' => 'Access denied.']);
+    }
+
+    $page    = max(1, (int) ($_GET['page']   ?? 1));
+    $perPage = 20;
+    $offset  = ($page - 1) * $perPage;
+    $filter  = trim($_GET['filter'] ?? '');
+
+    if ($filter !== '') {
+        $like  = "%{$conn->real_escape_string($filter)}%";
+        $total = $conn->query("SELECT COUNT(*) FROM audit_log WHERE performed_by LIKE '{$like}' OR action LIKE '{$like}' OR details LIKE '{$like}'")->fetch_row()[0];
+        $rows  = $conn->query("SELECT * FROM audit_log WHERE performed_by LIKE '{$like}' OR action LIKE '{$like}' OR details LIKE '{$like}' ORDER BY created_at DESC LIMIT {$perPage} OFFSET {$offset}");
+    } else {
+        $total = $conn->query("SELECT COUNT(*) FROM audit_log")->fetch_row()[0];
+        $rows  = $conn->query("SELECT * FROM audit_log ORDER BY created_at DESC LIMIT {$perPage} OFFSET {$offset}");
+    }
+
+    $logs = [];
+    while ($row = $rows->fetch_assoc()) {
+        $logs[] = $row;
+    }
+
+    jsonResponse([
+        'ok'        => true,
+        'logs'      => $logs,
+        'total'     => (int) $total,
+        'page'      => $page,
+        'per_page'  => $perPage,
+    ]);
+}
+
+// ============================================================
 //  AUTO-CLEANUP
 // ============================================================
 
@@ -223,6 +281,16 @@ function ajaxSaveDoctor(mysqli $conn): never
     $fetchSaved->execute();
     $saved = $fetchSaved->get_result()->fetch_assoc();
 
+    $actor       = $_SESSION['admin'];
+    $action      = ($id === 0) ? 'doctor_added' : 'doctor_edited';
+    // Map internal DB status values to the display labels shown in the UI
+    $statusLabels  = ['On Schedule' => 'Available', 'No Medical' => 'No Clinic'];
+    $displayStatus = $statusLabels[$status] ?? $status;
+    $detail      = ($id === 0)
+        ? "Added Dr. {$name} ({$dept}) — Status: {$displayStatus}"
+        : "Edited Dr. {$name} ({$dept}) — Status: {$displayStatus}";
+    logAudit($conn, $actor, $action, $detail);
+
     jsonResponse([
         'ok'     => true,
         'insert' => ($id === 0),
@@ -240,9 +308,18 @@ function ajaxDeleteDoctor(mysqli $conn): never
         jsonResponse(['ok' => false, 'error' => 'Invalid id.']);
     }
 
+    // Fetch name before deleting for the log
+    $fetchDel = $conn->prepare("SELECT name, department FROM doctors WHERE id = ?");
+    $fetchDel->bind_param('i', $id);
+    $fetchDel->execute();
+    $delRow = $fetchDel->get_result()->fetch_assoc();
+
     $stmt = $conn->prepare("DELETE FROM doctors WHERE id = ?");
     $stmt->bind_param('i', $id);
     $stmt->execute();
+
+    $detail = $delRow ? "Deleted Dr. {$delRow['name']} ({$delRow['department']})" : "Deleted doctor ID {$id}";
+    logAudit($conn, $_SESSION['admin'], 'doctor_deleted', $detail);
 
     jsonResponse(['ok' => true]);
 }
@@ -253,12 +330,15 @@ function ajaxDeleteDoctor(mysqli $conn): never
 function ajaxDeleteSelected(mysqli $conn): never
 {
     $ids = json_decode($_POST['ids'] ?? '[]', true);
+    $count = 0;
     foreach ($ids as $id) {
         $id   = (int) $id;
         $stmt = $conn->prepare("DELETE FROM doctors WHERE id = ?");
         $stmt->bind_param('i', $id);
         $stmt->execute();
+        $count++;
     }
+    logAudit($conn, $_SESSION['admin'], 'doctors_bulk_deleted', "Deleted {$count} doctor(s)");
     jsonResponse(['ok' => true]);
 }
 
@@ -268,6 +348,7 @@ function ajaxDeleteSelected(mysqli $conn): never
 function ajaxDeleteAll(mysqli $conn): never
 {
     $conn->query("DELETE FROM doctors");
+    logAudit($conn, $_SESSION['admin'], 'doctors_all_deleted', 'Deleted all doctor records');
     jsonResponse(['ok' => true]);
 }
 
@@ -283,6 +364,9 @@ function ajaxSaveDisplay(mysqli $conn): never
     $stmt = $conn->prepare("UPDATE display_settings SET scroll_speed = ?, pause_at_top = ?, pause_at_bottom = ? WHERE id = 1");
     $stmt->bind_param('iii', $speed, $top, $bottom);
     $stmt->execute();
+
+    logAudit($conn, $_SESSION['admin'], 'display_settings_saved',
+        "Speed: {$speed}, Pause Top: {$top}ms, Pause Bottom: {$bottom}ms");
 
     jsonResponse(['ok' => true]);
 }
@@ -324,6 +408,9 @@ function ajaxChangePassword(mysqli $conn): never
     $update->bind_param('ss', $hashed, $username);
     $update->execute();
 
+    $method = $usedResetKey ? 'master reset key' : 'current password';
+    logAudit($conn, $username, 'password_changed', "Changed own password via {$method}");
+
     jsonResponse(['ok' => true, 'message' => 'Password changed successfully!']);
 }
 
@@ -358,6 +445,9 @@ function ajaxAddUser(mysqli $conn, bool $isSuperadmin): never
     $stmt   = $conn->prepare("INSERT INTO users (username, password, is_superadmin) VALUES (?, ?, ?)");
     $stmt->bind_param('ssi', $username, $hashed, $role);
     $stmt->execute();
+
+    $roleLabel = $role ? 'Super Admin' : 'Admin';
+    logAudit($conn, $_SESSION['admin'], 'user_added', "Created user '{$username}' as {$roleLabel}");
 
     jsonResponse(['ok' => true, 'id' => $conn->insert_id, 'username' => $username, 'is_superadmin' => $role]);
 }
@@ -425,6 +515,14 @@ function ajaxEditUser(mysqli $conn, bool $isSuperadmin): never
     }
 
     $stmt->execute();
+
+    $roleLabel = $role ? 'Super Admin' : 'Admin';
+    $detail    = "Updated user '{$username}' — Role: {$roleLabel}";
+    if ($password !== '') {
+        $detail .= ' (password changed)';
+    }
+    logAudit($conn, $_SESSION['admin'], 'user_edited', $detail);
+
     jsonResponse(['ok' => true, 'message' => 'User updated successfully.']);
 }
 
@@ -457,6 +555,21 @@ function ajaxDeleteUser(mysqli $conn, bool $isSuperadmin, string $currentUsernam
     $deleteStmt = $conn->prepare("DELETE FROM users WHERE id = ?");
     $deleteStmt->bind_param('i', $id);
     $deleteStmt->execute();
+
+    logAudit($conn, $_SESSION['admin'], 'user_deleted', "Deleted user '{$target['username']}'");
+
+    jsonResponse(['ok' => true]);
+}
+
+/**
+ * POST  ajax=clear_audit_log  — truncate audit_log table (superadmin only)
+ */
+function ajaxClearAuditLog(mysqli $conn, bool $isSuperadmin): never
+{
+    if (!$isSuperadmin) {
+        jsonResponse(['ok' => false, 'error' => 'Access denied.']);
+    }
+    $conn->query("DELETE FROM audit_log");
     jsonResponse(['ok' => true]);
 }
 
@@ -475,9 +588,10 @@ $isSuperadmin = !empty($me['is_superadmin']);
 // ── Route AJAX GET requests ───────────────────────────────────────────────────
 if (isset($_GET['ajax'])) {
     match ($_GET['ajax']) {
-        'doctors' => ajaxGetDoctors($conn),
-        'users'   => ajaxGetUsers($conn, $isSuperadmin),
-        default   => jsonResponse(['ok' => false, 'error' => 'Unknown endpoint.']),
+        'doctors'   => ajaxGetDoctors($conn),
+        'users'     => ajaxGetUsers($conn, $isSuperadmin),
+        'audit_log' => ajaxGetAuditLog($conn, $isSuperadmin),
+        default     => jsonResponse(['ok' => false, 'error' => 'Unknown endpoint.']),
     };
 }
 
@@ -493,6 +607,7 @@ if (isset($_POST['ajax'])) {
         'add_user'         => ajaxAddUser($conn, $isSuperadmin),
         'edit_user'        => ajaxEditUser($conn, $isSuperadmin),
         'delete_user'      => ajaxDeleteUser($conn, $isSuperadmin, $currentUsername),
+        'clear_audit_log'  => ajaxClearAuditLog($conn, $isSuperadmin),
         default            => jsonResponse(['ok' => false, 'error' => 'Unknown endpoint.']),
     };
 }
@@ -897,6 +1012,18 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
             50%       { opacity: 0.5; }
         }
 
+        /* ── Audit log action badges ── */
+        .audit-badge {
+            display: inline-block;
+            padding: 2px 10px; border-radius: 20px;
+            font-size: 11px; font-weight: 700; white-space: nowrap;
+        }
+        .audit-badge.add     { background: #dcfce7; color: #15803d; }
+        .audit-badge.edit    { background: #eff6ff; color: #1d4ed8; }
+        .audit-badge.delete  { background: #fff5f5; color: #b91c1c; }
+        .audit-badge.setting { background: #fefce8; color: #92400e; }
+        .audit-badge.auth    { background: #f3e8ff; color: #7c3aed; }
+
         /* ── Modal internals ── */
         .modal .form-control,
         .modal .form-select {
@@ -1008,6 +1135,10 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
         <a class="nav-item" id="nav-users" onclick="showPage('users')">
             <i class="bi bi-people-fill"></i>
             <span class="nav-label">User Accounts</span>
+        </a>
+        <a class="nav-item" id="nav-audit" onclick="showPage('audit')">
+            <i class="bi bi-journal-text"></i>
+            <span class="nav-label">Audit Log</span>
         </a>
         <?php endif; ?>
 
@@ -1261,6 +1392,55 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
                         <tr><td colspan="5" class="table-empty">Loading…</td></tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($isSuperadmin): ?>
+    <!-- ── Audit Log ── -->
+    <div class="page" id="page-audit">
+        <div class="section-card">
+            <div class="section-card-header">
+                <div class="section-card-title"><i class="bi bi-journal-text"></i> Audit Log</div>
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <input type="text" id="audit-search" class="form-control"
+                           placeholder="Search user, action…"
+                           oninput="auditSearchDebounced()"
+                           style="width:220px; font-size:13px; padding:7px 12px;">
+                    <button class="btn-danger-custom" onclick="clearAuditLog()" style="padding:7px 16px; font-size:13px;">
+                        <i class="bi bi-trash"></i> Clear Log
+                    </button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width:160px;">Date &amp; Time</th>
+                            <th style="width:120px;">Performed By</th>
+                            <th style="width:160px;">Action</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit-tbody">
+                        <tr><td colspan="4" class="table-empty">Loading…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <!-- Pagination -->
+            <div id="audit-pagination" style="display:flex; justify-content:space-between; align-items:center;
+                 padding:12px 16px; border-top:1px solid var(--border); font-size:13px; color:var(--muted);">
+                <span id="audit-count"></span>
+                <div style="display:flex; gap:6px;">
+                    <button class="btn-icon btn-edit-sm" id="audit-prev" onclick="auditChangePage(-1)">
+                        <i class="bi bi-chevron-left"></i> Prev
+                    </button>
+                    <span id="audit-page-label" style="padding:4px 10px; font-weight:600;"></span>
+                    <button class="btn-icon btn-edit-sm" id="audit-next" onclick="auditChangePage(1)">
+                        Next <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -1536,6 +1716,7 @@ const PAGE_META = {
     doctors   : { title: 'Doctor List',      sub: 'Manage all doctor records' },
     display   : { title: 'Display Settings', sub: 'Configure TV display scroll behavior' },
     users     : { title: 'User Accounts',    sub: 'Manage admin user accounts' },
+    audit     : { title: 'Audit Log',         sub: 'Track all changes made by admin users' },
 };
 
 // ============================================================
@@ -1609,6 +1790,9 @@ function showPage(page) {
 
     document.getElementById('page-' + page)?.classList.add('active');
     document.getElementById('nav-'  + page)?.classList.add('active');
+
+    // Load data lazily when navigating to a page
+    if (page === 'audit') loadAuditLog();
 
     const meta = PAGE_META[page] ?? {};
     document.getElementById('topbar-title').textContent = meta.title ?? page;
@@ -2157,6 +2341,108 @@ async function pollUsers() {
     } catch (e) {
         // Network error — fail silently, will retry next interval
     }
+}
+
+// ============================================================
+//  Audit Log
+// ============================================================
+
+let auditPage       = 1;
+let auditTotalPages = 1;
+let auditSearchTerm = '';
+let auditDebounce   = null;
+
+/** Map action key → badge class and display label. */
+const AUDIT_META = {
+    doctor_added          : { cls: 'add',     label: 'Doctor Added' },
+    doctor_edited         : { cls: 'edit',    label: 'Doctor Edited' },
+    doctor_deleted        : { cls: 'delete',  label: 'Doctor Deleted' },
+    doctors_bulk_deleted  : { cls: 'delete',  label: 'Bulk Delete' },
+    doctors_all_deleted   : { cls: 'delete',  label: 'All Deleted' },
+    display_settings_saved: { cls: 'setting', label: 'Display Settings' },
+    password_changed      : { cls: 'auth',    label: 'Password Changed' },
+    user_added            : { cls: 'add',     label: 'User Added' },
+    user_edited           : { cls: 'edit',    label: 'User Edited' },
+    user_deleted          : { cls: 'delete',  label: 'User Deleted' },
+};
+
+async function loadAuditLog() {
+    const tbody = document.getElementById('audit-tbody');
+    tbody.innerHTML = '<tr><td colspan="4" class="table-empty">Loading…</td></tr>';
+
+    const params = new URLSearchParams({
+        ajax  : 'audit_log',
+        page  : auditPage,
+        filter: auditSearchTerm,
+    });
+
+    const res = await fetch(window.location.pathname + '?' + params);
+    const data = await res.json();
+
+    if (!data.ok) {
+        tbody.innerHTML = `<tr><td colspan="4" class="table-empty" style="color:var(--danger);">${escH(data.error)}</td></tr>`;
+        return;
+    }
+
+    if (data.logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="table-empty">No audit entries found.</td></tr>';
+        updateAuditPagination(data);
+        return;
+    }
+
+    tbody.innerHTML = data.logs.map(log => {
+        const meta  = AUDIT_META[log.action] ?? { cls: 'edit', label: log.action };
+        const dt    = new Date(log.created_at).toLocaleString('en-US', {
+            month: 'short', day: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit', hour12: true,
+        });
+        return `
+            <tr>
+                <td style="color:var(--muted); font-size:12px;">${escH(dt)}</td>
+                <td><strong>${escH(log.performed_by)}</strong></td>
+                <td><span class="audit-badge ${meta.cls}">${escH(meta.label)}</span></td>
+                <td style="font-size:13px;">${escH(log.details)}</td>
+            </tr>`;
+    }).join('');
+
+    updateAuditPagination(data);
+}
+
+function updateAuditPagination(data) {
+    auditTotalPages = Math.max(1, Math.ceil(data.total / data.per_page));
+    const start = data.total === 0 ? 0 : (data.page - 1) * data.per_page + 1;
+    const end   = Math.min(data.page * data.per_page, data.total);
+
+    document.getElementById('audit-count').textContent =
+        data.total === 0 ? 'No entries' : `Showing ${start}–${end} of ${data.total} entries`;
+    document.getElementById('audit-page-label').textContent = `Page ${data.page} of ${auditTotalPages}`;
+    document.getElementById('audit-prev').disabled = data.page <= 1;
+    document.getElementById('audit-next').disabled = data.page >= auditTotalPages;
+}
+
+function auditChangePage(dir) {
+    const next = auditPage + dir;
+    if (next < 1 || next > auditTotalPages) return;
+    auditPage = next;
+    loadAuditLog();
+}
+
+function auditSearchDebounced() {
+    clearTimeout(auditDebounce);
+    auditDebounce = setTimeout(() => {
+        auditPage       = 1;
+        auditSearchTerm = document.getElementById('audit-search').value.trim();
+        loadAuditLog();
+    }, 350);
+}
+
+async function clearAuditLog() {
+    if (!confirm('Clear the entire audit log? This cannot be undone.')) return;
+    const res = await apiPost({ ajax: 'clear_audit_log' });
+    if (!res.ok) { toast(res.error ?? 'Failed to clear log', true); return; }
+    toast('Audit log cleared.');
+    auditPage = 1;
+    loadAuditLog();
 }
 
 // ============================================================
