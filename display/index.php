@@ -36,6 +36,28 @@ function loadDoctorGroups(mysqli $conn): array
     return $groups;
 }
 
+/**
+ * Reset confirmed On Leave doctors whose resume date has passed.
+ * Mirrors the same logic in admin/index.php — ensures the display board
+ * stays accurate even if nobody opens the admin panel that day.
+ * Tentative dates are skipped — admin must review those manually.
+ */
+function autoCleanExpiredLeave(mysqli $conn): void
+{
+    $stmt = $conn->prepare("
+        UPDATE doctors
+        SET    status       = 'No Medical',
+               resume_date  = NULL,
+               remarks      = NULL,
+               is_tentative = 0
+        WHERE  status        = 'On Leave'
+          AND  is_tentative  = 0
+          AND  resume_date  IS NOT NULL
+          AND  resume_date   < CURDATE()
+    ");
+    $stmt->execute();
+}
+
 /** Load display scroll settings (or return safe defaults). */
 function loadDisplaySettings(mysqli $conn): array
 {
@@ -53,6 +75,7 @@ function loadDisplaySettings(mysqli $conn): array
 // ============================================================
 
 if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
+    autoCleanExpiredLeave($conn); // keep data fresh on every poll
     $allDoctors = [];
     $result = $conn->query("SELECT * FROM doctors ORDER BY department, name");
     while ($row = $result->fetch_assoc()) {
@@ -71,6 +94,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === '1') {
 //  INITIAL PAGE RENDER
 // ============================================================
 
+autoCleanExpiredLeave($conn); // reset confirmed expired leave before rendering
 $groups          = loadDoctorGroups($conn);
 $displaySettings = loadDisplaySettings($conn);
 

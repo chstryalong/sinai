@@ -37,6 +37,36 @@ const PAUSE_LABELS = [
 ];
 
 // ============================================================
+//  AUTO-CLEANUP
+// ============================================================
+
+/**
+ * Reset doctors whose confirmed (non-tentative) resume date has passed today.
+ * - is_tentative = 0 + resume_date < TODAY  →  reset to No Medical (No Clinic)
+ * - is_tentative = 1 + resume_date < TODAY  →  leave untouched; flag is returned
+ *   to the UI so admins know to review them manually.
+ *
+ * Runs on every page load — the WHERE clause is indexed on resume_date so it
+ * is effectively free when there are no expired rows.
+ */
+function autoCleanExpiredLeave(mysqli $conn): void
+{
+    // Reset confirmed leave where resume date has passed
+    $stmt = $conn->prepare("
+        UPDATE doctors
+        SET    status       = 'No Medical',
+               resume_date  = NULL,
+               remarks      = NULL,
+               is_tentative = 0
+        WHERE  status        = 'On Leave'
+          AND  is_tentative  = 0
+          AND  resume_date  IS NOT NULL
+          AND  resume_date   < CURDATE()
+    ");
+    $stmt->execute();
+}
+
+// ============================================================
 //  HELPERS
 // ============================================================
 
@@ -471,6 +501,10 @@ if (isset($_POST['ajax'])) {
 //  PAGE DATA  (for initial HTML render — no AJAX involved)
 // ============================================================
 
+// Auto-reset confirmed On Leave doctors whose resume date has passed.
+// Tentative-date doctors are intentionally skipped — admin must review manually.
+autoCleanExpiredLeave($conn);
+
 $displaySettings = $conn->query("SELECT * FROM display_settings ORDER BY id LIMIT 1")->fetch_assoc();
 
 // Cast to int — MySQL returns strings, and the === comparisons in the select options require matching types
@@ -846,6 +880,21 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
             font-size: 10px; font-weight: 700;
             margin-left: 6px;
             border: 1px dashed rgba(245,158,11,0.5);
+        }
+
+        /* ── Overdue pill — tentative date has already passed, needs admin review ── */
+        .overdue-pill {
+            display: inline-block;
+            background: rgba(220,53,69,0.12); color: #b91c1c;
+            padding: 2px 8px; border-radius: 4px;
+            font-size: 10px; font-weight: 700;
+            margin-left: 6px;
+            border: 1px dashed rgba(220,53,69,0.5);
+            animation: pulse-overdue 1.6s ease-in-out infinite;
+        }
+        @keyframes pulse-overdue {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.5; }
         }
 
         /* ── Modal internals ── */
@@ -1619,8 +1668,16 @@ function renderTable(doctors) {
     }
 
     tbody.innerHTML = doctors.map(d => {
+        const today      = new Date(); today.setHours(0,0,0,0);
+        const resumePast = d.resume_date && new Date(d.resume_date) < today;
         const resumeHtml = d.resume_date
-            ? `${fmtDate(d.resume_date)}${d.is_tentative ? '<span class="tentative-pill">TENTATIVE</span>' : ''}`
+            ? `${fmtDate(d.resume_date)}${
+                d.is_tentative && resumePast
+                    ? '<span class="overdue-pill">⚠ OVERDUE — Review</span>'
+                    : d.is_tentative
+                        ? '<span class="tentative-pill">TENTATIVE</span>'
+                        : ''
+              }`
             : '<span style="color:#ccc;">—</span>';
 
         const remarksHtml = (d.remarks && d.label === 'On Leave')
