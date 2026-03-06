@@ -132,6 +132,28 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
 
+    // departments — dynamic department list
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS departments (
+            id         INT(11)      NOT NULL AUTO_INCREMENT,
+            name       VARCHAR(100) NOT NULL UNIQUE,
+            created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+
+    // Default departments
+    if ((int) $pdo->query("SELECT COUNT(*) FROM departments")->fetchColumn() === 0) {
+        $pdo->exec("
+            INSERT INTO departments (name) VALUES
+            ('OPD'), ('ER'), ('Pediatrics'), ('Cardiology'), ('Radiology'), ('Laboratory')
+        ");
+        echo "<p class='step ok'>✔ Default departments added</p>";
+    }
+
+
+    echo "<p class='step ok'>✔ Tables created</p>";
+
     // ── Default data ──────────────────────────────────────────────────────────
 
     // Default superadmin account
@@ -150,6 +172,7 @@ try {
         ");
         echo "<p class='step ok'>✔ Default display settings added</p>";
     }
+
 
     // ── Success ───────────────────────────────────────────────────────────────
     ?>
