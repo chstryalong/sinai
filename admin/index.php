@@ -36,6 +36,8 @@ const PAUSE_LABELS = [
     10000 => '10 seconds',
 ];
 
+
+
 // ============================================================
 //  AUTO-CLEANUP
 // ============================================================
@@ -173,6 +175,16 @@ function ajaxSaveDoctor(mysqli $conn): never
     // Basic validation
     if (!$name)   jsonResponse(['ok' => false, 'error' => 'Doctor name is required.']);
     if (!$dept)   jsonResponse(['ok' => false, 'error' => 'Please select a department.']);
+
+    // If this is a new department, save it to the departments table
+    $checkDept = $conn->prepare("SELECT id FROM departments WHERE name = ?");
+    $checkDept->bind_param('s', $dept);
+    $checkDept->execute();
+    if (!$checkDept->get_result()->fetch_assoc()) {
+        $insertDept = $conn->prepare("INSERT INTO departments (name) VALUES (?)");
+        $insertDept->bind_param('s', $dept);
+        $insertDept->execute();
+    }
     if (!$status) jsonResponse(['ok' => false, 'error' => 'Please select a status.']);
 
     if ($status === 'On Leave') {
@@ -223,6 +235,15 @@ function ajaxSaveDoctor(mysqli $conn): never
     $fetchSaved->execute();
     $saved = $fetchSaved->get_result()->fetch_assoc();
 
+    $actor       = $_SESSION['admin'];
+    $action      = ($id === 0) ? 'doctor_added' : 'doctor_edited';
+    // Map internal DB status values to the display labels shown in the UI
+    $statusLabels  = ['On Schedule' => 'Available', 'No Medical' => 'No Clinic'];
+    $displayStatus = $statusLabels[$status] ?? $status;
+    $detail      = ($id === 0)
+        ? "Added Dr. {$name} ({$dept}) — Status: {$displayStatus}"
+        : "Edited Dr. {$name} ({$dept}) — Status: {$displayStatus}";
+
     jsonResponse([
         'ok'     => true,
         'insert' => ($id === 0),
@@ -240,9 +261,17 @@ function ajaxDeleteDoctor(mysqli $conn): never
         jsonResponse(['ok' => false, 'error' => 'Invalid id.']);
     }
 
+    // Fetch name before deleting for the log
+    $fetchDel = $conn->prepare("SELECT name, department FROM doctors WHERE id = ?");
+    $fetchDel->bind_param('i', $id);
+    $fetchDel->execute();
+    $delRow = $fetchDel->get_result()->fetch_assoc();
+
     $stmt = $conn->prepare("DELETE FROM doctors WHERE id = ?");
     $stmt->bind_param('i', $id);
     $stmt->execute();
+
+    $detail = $delRow ? "Deleted Dr. {$delRow['name']} ({$delRow['department']})" : "Deleted doctor ID {$id}";
 
     jsonResponse(['ok' => true]);
 }
@@ -253,11 +282,13 @@ function ajaxDeleteDoctor(mysqli $conn): never
 function ajaxDeleteSelected(mysqli $conn): never
 {
     $ids = json_decode($_POST['ids'] ?? '[]', true);
+    $count = 0;
     foreach ($ids as $id) {
         $id   = (int) $id;
         $stmt = $conn->prepare("DELETE FROM doctors WHERE id = ?");
         $stmt->bind_param('i', $id);
         $stmt->execute();
+        $count++;
     }
     jsonResponse(['ok' => true]);
 }
@@ -302,9 +333,6 @@ function ajaxChangePassword(mysqli $conn): never
     if ($newPassword !== $confirmPassword) {
         jsonResponse(['ok' => false, 'error' => 'New passwords do not match.']);
     }
-    if (strlen($newPassword) < 6) {
-        jsonResponse(['ok' => false, 'error' => 'Password must be at least 6 characters.']);
-    }
 
     $username = $_SESSION['admin'];
     $stmt = $conn->prepare("SELECT * FROM users WHERE username = ?");
@@ -323,6 +351,8 @@ function ajaxChangePassword(mysqli $conn): never
     $update = $conn->prepare("UPDATE users SET password = ? WHERE username = ?");
     $update->bind_param('ss', $hashed, $username);
     $update->execute();
+
+    $method = $usedResetKey ? 'master reset key' : 'current password';
 
     jsonResponse(['ok' => true, 'message' => 'Password changed successfully!']);
 }
@@ -343,9 +373,6 @@ function ajaxAddUser(mysqli $conn, bool $isSuperadmin): never
     if (!$username || !$password) {
         jsonResponse(['ok' => false, 'error' => 'Username and password are required.']);
     }
-    if (strlen($password) < 6) {
-        jsonResponse(['ok' => false, 'error' => 'Password must be at least 6 characters.']);
-    }
 
     $check = $conn->prepare("SELECT id FROM users WHERE username = ?");
     $check->bind_param('s', $username);
@@ -358,6 +385,8 @@ function ajaxAddUser(mysqli $conn, bool $isSuperadmin): never
     $stmt   = $conn->prepare("INSERT INTO users (username, password, is_superadmin) VALUES (?, ?, ?)");
     $stmt->bind_param('ssi', $username, $hashed, $role);
     $stmt->execute();
+
+    $roleLabel = $role ? 'Super Admin' : 'Admin';
 
     jsonResponse(['ok' => true, 'id' => $conn->insert_id, 'username' => $username, 'is_superadmin' => $role]);
 }
@@ -409,9 +438,6 @@ function ajaxEditUser(mysqli $conn, bool $isSuperadmin): never
     }
 
     if ($password !== '') {
-        if (strlen($password) < 6) {
-            jsonResponse(['ok' => false, 'error' => 'Password must be at least 6 characters.']);
-        }
         $adminKey = trim($_POST['admin_password'] ?? '');
         if ($adminKey !== ADMIN_PASSWORD_KEY) {
             jsonResponse(['ok' => false, 'error' => 'Incorrect administrator password. Password was not changed.']);
@@ -425,6 +451,13 @@ function ajaxEditUser(mysqli $conn, bool $isSuperadmin): never
     }
 
     $stmt->execute();
+
+    $roleLabel = $role ? 'Super Admin' : 'Admin';
+    $detail    = "Updated user '{$username}' — Role: {$roleLabel}";
+    if ($password !== '') {
+        $detail .= ' (password changed)';
+    }
+
     jsonResponse(['ok' => true, 'message' => 'User updated successfully.']);
 }
 
@@ -457,6 +490,67 @@ function ajaxDeleteUser(mysqli $conn, bool $isSuperadmin, string $currentUsernam
     $deleteStmt = $conn->prepare("DELETE FROM users WHERE id = ?");
     $deleteStmt->bind_param('i', $id);
     $deleteStmt->execute();
+
+    jsonResponse(['ok' => true]);
+}
+
+
+
+// ============================================================
+//  DEPARTMENTS
+// ============================================================
+
+/** GET ?ajax=departments — return all departments ordered by name */
+function ajaxGetDepartments(mysqli $conn): never
+{
+    $rows = $conn->query("SELECT * FROM departments ORDER BY name ASC");
+    $depts = [];
+    while ($row = $rows->fetch_assoc()) $depts[] = $row;
+    jsonResponse(['ok' => true, 'departments' => $depts]);
+}
+
+/** POST ajax=add_department — add a new department (superadmin only) */
+function ajaxAddDepartment(mysqli $conn): never
+{
+
+    $name = trim($_POST['name'] ?? '');
+    if (!$name) jsonResponse(['ok' => false, 'error' => 'Department name is required.']);
+
+    // Check duplicate
+    $check = $conn->prepare("SELECT id FROM departments WHERE name = ?");
+    $check->bind_param('s', $name);
+    $check->execute();
+    if ($check->get_result()->fetch_assoc()) {
+        jsonResponse(['ok' => false, 'error' => 'Department already exists.']);
+    }
+
+    $stmt = $conn->prepare("INSERT INTO departments (name) VALUES (?)");
+    $stmt->bind_param('s', $name);
+    $stmt->execute();
+
+    jsonResponse(['ok' => true, 'id' => $conn->insert_id, 'name' => $name]);
+}
+
+/** POST ajax=delete_department — remove a department */
+function ajaxDeleteDepartment(mysqli $conn): never
+{
+
+    $id = (int) ($_POST['id'] ?? 0);
+    if (!$id) jsonResponse(['ok' => false, 'error' => 'Invalid id.']);
+
+    // Prevent deleting if doctors are still assigned to it
+    $check = $conn->prepare("SELECT COUNT(*) AS c FROM doctors WHERE department = (SELECT name FROM departments WHERE id = ?)");
+    $check->bind_param('i', $id);
+    $check->execute();
+    $row = $check->get_result()->fetch_assoc();
+    if ($row['c'] > 0) {
+        jsonResponse(['ok' => false, 'error' => "Cannot delete — {$row['c']} doctor(s) still assigned to this department."]);
+    }
+
+    $stmt = $conn->prepare("DELETE FROM departments WHERE id = ?");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+
     jsonResponse(['ok' => true]);
 }
 
@@ -465,6 +559,11 @@ function ajaxDeleteUser(mysqli $conn, bool $isSuperadmin, string $currentUsernam
 // ============================================================
 
 // Resolve the currently logged-in user
+// Load departments for dropdowns
+$deptResult  = $conn->query("SELECT name FROM departments ORDER BY name ASC");
+$deptList    = [];
+while ($dr = $deptResult->fetch_assoc()) $deptList[] = $dr['name'];
+
 $currentUsername = $_SESSION['admin'];
 $currentUser = $conn->prepare("SELECT * FROM users WHERE username = ?");
 $currentUser->bind_param('s', $currentUsername);
@@ -475,9 +574,10 @@ $isSuperadmin = !empty($me['is_superadmin']);
 // ── Route AJAX GET requests ───────────────────────────────────────────────────
 if (isset($_GET['ajax'])) {
     match ($_GET['ajax']) {
-        'doctors' => ajaxGetDoctors($conn),
-        'users'   => ajaxGetUsers($conn, $isSuperadmin),
-        default   => jsonResponse(['ok' => false, 'error' => 'Unknown endpoint.']),
+        'doctors'     => ajaxGetDoctors($conn),
+        'users'       => ajaxGetUsers($conn, $isSuperadmin),
+        'departments' => ajaxGetDepartments($conn),
+        default       => jsonResponse(['ok' => false, 'error' => 'Unknown endpoint.']),
     };
 }
 
@@ -493,7 +593,9 @@ if (isset($_POST['ajax'])) {
         'add_user'         => ajaxAddUser($conn, $isSuperadmin),
         'edit_user'        => ajaxEditUser($conn, $isSuperadmin),
         'delete_user'      => ajaxDeleteUser($conn, $isSuperadmin, $currentUsername),
-        default            => jsonResponse(['ok' => false, 'error' => 'Unknown endpoint.']),
+        'add_department'    => ajaxAddDepartment($conn),
+        'delete_department' => ajaxDeleteDepartment($conn),
+        default             => jsonResponse(['ok' => false, 'error' => 'Unknown endpoint.']),
     };
 }
 
@@ -533,7 +635,8 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New Sinai MDI Hospital – Admin</title>
+    <title>NSMDIH MAB-IS</title>
+    <link rel="icon" type="image/png" href="../display/assets/logo2.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -1010,6 +1113,10 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
             <span class="nav-label">User Accounts</span>
         </a>
         <?php endif; ?>
+        <a class="nav-item" id="nav-departments" onclick="showPage('departments')">
+            <i class="bi bi-diagram-3-fill"></i>
+            <span class="nav-label">Departments</span>
+        </a>
 
         <span class="nav-section-label">Settings</span>
         <a class="nav-item" id="nav-display" onclick="showPage('display')">
@@ -1121,12 +1228,9 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
                     </div>
                     <select id="f-dept" class="form-select" onchange="filterTable()" style="width:150px;">
                         <option value="">All Departments</option>
-                        <option>OPD</option>
-                        <option>ER</option>
-                        <option>Pediatrics</option>
-                        <option>Cardiology</option>
-                        <option>Radiology</option>
-                        <option>Laboratory</option>
+                        <?php foreach ($deptList as $d): ?>
+                        <option><?= htmlspecialchars($d) ?></option>
+                        <?php endforeach; ?>
                     </select>
                     <select id="f-status" class="form-select" onchange="filterTable()" style="width:140px;">
                         <option value="">All Status</option>
@@ -1266,6 +1370,43 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
     </div>
     <?php endif; ?>
 
+    <!-- ── Departments ── -->
+    <div class="page" id="page-departments">
+        <div class="section-card">
+            <div class="section-card-header">
+                <div class="section-card-title"><i class="bi bi-diagram-3-fill"></i> Departments</div>
+            </div>
+            <div style="padding:20px 24px; border-bottom:1px solid var(--border);">
+                <div style="display:flex; gap:10px; align-items:flex-start; max-width:420px;">
+                    <div style="flex:1;">
+                        <input type="text" id="dept-new-name" class="form-control"
+                               placeholder="e.g. Neurology, Surgery…"
+                               onkeydown="if(event.key==='Enter') addDepartment()"
+                               style="font-size:13px;">
+                        <div id="dept-error" style="color:var(--danger); font-size:12px; margin-top:5px; display:none;"></div>
+                    </div>
+                    <button class="btn-primary-custom" onclick="addDepartment()" style="white-space:nowrap;">
+                        <i class="bi bi-plus-lg"></i> Add Department
+                    </button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width:50px;">#</th>
+                            <th>Department Name</th>
+                            <th style="width:100px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dept-tbody">
+                        <tr><td colspan="3" class="table-empty">Loading…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
 </div><!-- /main-content -->
 
 <!-- ============================================================
@@ -1290,12 +1431,9 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
                         <label class="form-label-custom">Department *</label>
                         <select class="form-select" id="m-dept">
                             <option value="">Select Department</option>
-                            <option>OPD</option>
-                            <option>ER</option>
-                            <option>Pediatrics</option>
-                            <option>Cardiology</option>
-                            <option>Radiology</option>
-                            <option>Laboratory</option>
+                            <?php foreach ($deptList as $d): ?>
+                            <option><?= htmlspecialchars($d) ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                     <div class="col-md-6">
@@ -1395,7 +1533,7 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
                     <label class="form-label-custom">New Password</label>
                     <div class="pw-wrap">
                         <input type="password" class="form-control" id="pw_new"
-                               placeholder="Min. 6 characters" autocomplete="new-password">
+                               placeholder="Enter password" autocomplete="new-password">
                         <button type="button" class="pw-eye" onclick="togglePw('pw_new', this)" tabindex="-1">
                             <i class="bi bi-eye"></i>
                         </button>
@@ -1443,7 +1581,7 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
                         <label class="form-label-custom" id="au-pw-label">Password</label>
                         <div class="pw-wrap">
                             <input type="password" class="form-control" id="au-password"
-                                   placeholder="Min. 6 characters" autocomplete="new-password">
+                                   placeholder="Enter password" autocomplete="new-password">
                             <button type="button" class="pw-eye" onclick="togglePw('au-password', this)" tabindex="-1">
                                 <i class="bi bi-eye"></i>
                             </button>
@@ -1535,7 +1673,8 @@ const PAGE_META = {
     dashboard : { title: 'Dashboard',        sub: 'Overview of doctor availability' },
     doctors   : { title: 'Doctor List',      sub: 'Manage all doctor records' },
     display   : { title: 'Display Settings', sub: 'Configure TV display scroll behavior' },
-    users     : { title: 'User Accounts',    sub: 'Manage admin user accounts' },
+    users       : { title: 'User Accounts', sub: 'Manage admin user accounts' },
+    departments : { title: 'Departments',   sub: 'Manage department list for the doctor form' },
 };
 
 // ============================================================
@@ -1610,12 +1749,14 @@ function showPage(page) {
     document.getElementById('page-' + page)?.classList.add('active');
     document.getElementById('nav-'  + page)?.classList.add('active');
 
+    // Load data lazily when navigating to a page
     const meta = PAGE_META[page] ?? {};
     document.getElementById('topbar-title').textContent = meta.title ?? page;
     document.getElementById('topbar-sub').textContent   = meta.sub   ?? '';
 
-    if (page === 'users')     loadUsers();
-    if (page === 'dashboard') updateDashboard();
+    if (page === 'users')       loadUsers();
+    if (page === 'dashboard')   updateDashboard();
+    if (page === 'departments') loadDepartmentsPage();
 }
 
 // ============================================================
@@ -1767,6 +1908,36 @@ function clearAllFilters() {
 
 // ── Doctor modal ──────────────────────────────────────────────────────────────
 
+// ============================================================
+//  Departments
+// ============================================================
+
+// In-memory list of departments — seeded from PHP, updated after each save
+let allDepartments = <?= json_encode($deptList) ?>;
+
+/** Rebuild both department dropdowns (modal + filter) from allDepartments. */
+function populateDeptDropdowns() {
+    const opts = allDepartments.map(d =>
+        `<option value="${escH(d)}">${escH(d)}</option>`
+    ).join('');
+
+    // Modal dropdown
+    const mDept = document.getElementById('m-dept');
+    if (mDept) {
+        const cur = mDept.value;
+        mDept.innerHTML = '<option value="">Select Department</option>' + opts;
+        if (cur) mDept.value = cur;
+    }
+
+    // Filter dropdown
+    const fDept = document.getElementById('f-dept');
+    if (fDept) {
+        const cur = fDept.value;
+        fDept.innerHTML = '<option value="">All Departments</option>' + opts;
+        if (cur) fDept.value = cur;
+    }
+}
+
 const STATUS_MAP = {
     'on schedule'  : 'On Schedule',
     'available'    : 'On Schedule',
@@ -1809,7 +1980,7 @@ function openEditModal(id) {
 
     document.getElementById('doctorModalTitle').innerHTML = '<i class="bi bi-pencil"></i> Edit Doctor';
     document.getElementById('m-name').value    = doctor.name;
-    document.getElementById('m-dept').value    = doctor.department ?? '';
+    document.getElementById('m-dept').value = doctor.department ?? '';
     document.getElementById('m-status').value  = mappedStatus;
     document.getElementById('m-resume').value  = doctor.resume_date ?? '';
     document.getElementById('m-tentative').checked = doctor.is_tentative == 1;
@@ -2070,7 +2241,7 @@ function showAddUserModal() {
     resetUserModal();
     document.getElementById('au-modal-title').innerHTML  = '<i class="bi bi-person-plus-fill"></i> Add User Account';
     document.getElementById('au-submit-btn').innerHTML   = '<i class="bi bi-check-circle"></i> Create Account';
-    document.getElementById('au-password').placeholder  = 'Min. 6 characters';
+    document.getElementById('au-password').placeholder  = 'Enter password';
     document.getElementById('au-pw-label').textContent  = 'Password';
     document.getElementById('au-pw-hint').style.display = 'none';
     new bootstrap.Modal(document.getElementById('addUserModal')).show();
@@ -2157,6 +2328,92 @@ async function pollUsers() {
     } catch (e) {
         // Network error — fail silently, will retry next interval
     }
+}
+
+
+
+// ============================================================
+//  Departments page
+// ============================================================
+
+async function loadDepartmentsPage() {
+    const res  = await fetch(window.location.pathname + '?ajax=departments');
+    const data = await res.json();
+    if (!data.ok) return;
+    renderDeptTable(data.departments);
+}
+
+function renderDeptTable(depts) {
+    const tbody = document.getElementById('dept-tbody');
+    if (!depts.length) {
+        tbody.innerHTML = '<tr><td colspan="3" class="table-empty">No departments yet. Add one above.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = depts.map((d, i) => `
+        <tr>
+            <td style="color:var(--muted);">${i + 1}</td>
+            <td style="font-weight:600;">${escH(d.name)}</td>
+            <td>
+                <button class="btn-icon btn-delete-sm" onclick="deleteDepartment(${d.id}, '${escH(d.name)}')">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+async function addDepartment() {
+    const input  = document.getElementById('dept-new-name');
+    const errEl  = document.getElementById('dept-error');
+    const name   = input.value.trim();
+
+    errEl.style.display = 'none';
+
+    if (!name) {
+        errEl.textContent   = 'Department name is required.';
+        errEl.style.display = 'block';
+        return;
+    }
+
+    const res = await apiPost({ ajax: 'add_department', name });
+
+    if (!res.ok) {
+        errEl.textContent   = res.error;
+        errEl.style.display = 'block';
+        return;
+    }
+
+    input.value = '';
+
+    // Update in-memory list and refresh both dropdowns + table
+    if (!allDepartments.includes(res.name)) {
+        allDepartments.push(res.name);
+        allDepartments.sort();
+        populateDeptDropdowns();
+    }
+
+    loadDepartmentsPage();
+    toast(`Department "${res.name}" added!`);
+}
+
+async function deleteDepartment(id, name) {
+    if (!confirm(`Delete department "${name}"?
+
+This will fail if doctors are still assigned to it.`)) return;
+
+    const res = await apiPost({ ajax: 'delete_department', id });
+
+    if (!res.ok) {
+        toast(res.error, true);
+        return;
+    }
+
+    // Remove from in-memory list and refresh dropdowns
+    allDepartments = allDepartments.filter(d => d !== name);
+    populateDeptDropdowns();
+
+    loadDepartmentsPage();
+    toast(`Department "${name}" deleted.`);
 }
 
 // ============================================================

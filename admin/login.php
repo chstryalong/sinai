@@ -37,7 +37,8 @@ if (isset($_POST['login'])) {
     <meta http-equiv="Expires" content="0">
     <!-- Auto-refresh after 10 minutes of idle -->
     <meta http-equiv="refresh" content="600">
-    <title>New Sinai MDI Hospital – Admin Login</title>
+    <title>NSMDIH MAB-IS</title>
+    <link rel="icon" type="image/png" href="../display/assets/logo2.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
