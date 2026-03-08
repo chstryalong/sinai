@@ -165,8 +165,8 @@ function ajaxGetUsers(mysqli $conn, bool $isSuperadmin): never
 function ajaxSaveDoctor(mysqli $conn): never
 {
     $id       = (int) ($_POST['id'] ?? 0);
-    $name     = trim($_POST['name'] ?? '');
-    $dept     = trim($_POST['department'] ?? '');
+    $name     = strtoupper(trim($_POST['name'] ?? ''));
+    $dept     = strtoupper(trim($_POST['department'] ?? ''));
     $status   = trim($_POST['status'] ?? '');
     $resume   = trim($_POST['resume_date'] ?? '') ?: null;
     $remarks  = trim($_POST['remarks'] ?? '') ?: null;
@@ -509,11 +509,10 @@ function ajaxGetDepartments(mysqli $conn): never
     jsonResponse(['ok' => true, 'departments' => $depts]);
 }
 
-/** POST ajax=add_department — add a new department (superadmin only) */
+/** POST ajax=add_department — add a new department */
 function ajaxAddDepartment(mysqli $conn): never
 {
-
-    $name = trim($_POST['name'] ?? '');
+    $name = strtoupper(trim($_POST['name'] ?? ''));
     if (!$name) jsonResponse(['ok' => false, 'error' => 'Department name is required.']);
 
     // Check duplicate
@@ -635,7 +634,7 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NSMDIH MAB-IS</title>
+    <title>NSMDIH MAB-IS - Admin</title>
     <link rel="icon" type="image/png" href="../display/assets/logo2.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
@@ -1023,6 +1022,8 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
 
         .form-label-custom { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: block; }
 
+        /* ── Uppercase inputs ── */
+        #m-name, #dept-new-name { text-transform: uppercase; }
 
         /* ── Password input with eye toggle ── */
         .pw-wrap { position: relative; }
@@ -1992,8 +1993,8 @@ function openEditModal(id) {
 }
 
 async function saveDoctor() {
-    const name      = document.getElementById('m-name').value.trim();
-    const dept      = document.getElementById('m-dept').value;
+    const name      = document.getElementById('m-name').value.trim().toUpperCase();
+    const dept      = document.getElementById('m-dept').value.toUpperCase();
     const status    = document.getElementById('m-status').value;
     const resume    = document.getElementById('m-resume').value;
     const tentative = document.getElementById('m-tentative').checked ? 1 : 0;
@@ -2365,7 +2366,7 @@ function renderDeptTable(depts) {
 async function addDepartment() {
     const input  = document.getElementById('dept-new-name');
     const errEl  = document.getElementById('dept-error');
-    const name   = input.value.trim();
+    const name   = input.value.trim().toUpperCase();
 
     errEl.style.display = 'none';
 

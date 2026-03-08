@@ -146,7 +146,7 @@ try {
     if ((int) $pdo->query("SELECT COUNT(*) FROM departments")->fetchColumn() === 0) {
         $pdo->exec("
             INSERT INTO departments (name) VALUES
-            ('OPD'), ('ER'), ('Pediatrics'), ('Cardiology'), ('Radiology'), ('Laboratory')
+            ('OPD'), ('ER'), ('PEDIATRICS'), ('CARDIOLOGY'), ('RADIOLOGY'), ('LABORATORY')
         ");
         echo "<p class='step ok'>✔ Default departments added</p>";
     }
