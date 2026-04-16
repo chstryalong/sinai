@@ -43,29 +43,19 @@ const PAUSE_LABELS = [
 // ============================================================
 
 /**
- * Reset doctors whose confirmed (non-tentative) resume date has passed today.
- * - is_tentative = 0 + resume_date < TODAY  →  reset to No Medical (No Clinic)
- * - is_tentative = 1 + resume_date < TODAY  →  leave untouched; flag is returned
- *   to the UI so admins know to review them manually.
+ * Both confirmed and tentative leave records are now flagged for manual admin review
+ * when their resume date has passed. Auto-cleanup is disabled to prevent unintended
+ * status changes.
+ * 
+ * - is_tentative = 0 + resume_date < TODAY  →  left on leave; flagged in UI
+ * - is_tentative = 1 + resume_date < TODAY  →  left on leave; flagged in UI
  *
- * Runs on every page load — the WHERE clause is indexed on resume_date so it
- * is effectively free when there are no expired rows.
+ * Runs on every page load — admins must manually review and update expired leaves.
  */
 function autoCleanExpiredLeave(mysqli $conn): void
 {
-    // Reset confirmed leave where resume date has passed
-    $stmt = $conn->prepare("
-        UPDATE doctors
-        SET    status       = 'No Medical',
-               resume_date  = NULL,
-               remarks      = NULL,
-               is_tentative = 0
-        WHERE  status        = 'On Leave'
-          AND  is_tentative  = 0
-          AND  resume_date  IS NOT NULL
-          AND  resume_date   < CURDATE()
-    ");
-    $stmt->execute();
+    // Auto-cleanup disabled. Both tentative and confirmed expired dates are now
+    // flagged in the UI for manual admin review instead of auto-resetting.
 }
 
 // ============================================================
@@ -174,7 +164,7 @@ function ajaxSaveDoctor(mysqli $conn): never
 
     // Basic validation
     if (!$name)   jsonResponse(['ok' => false, 'error' => 'Doctor name is required.']);
-    if (!$dept)   jsonResponse(['ok' => false, 'error' => 'Please select a department.']);
+    if (!$dept)   jsonResponse(['ok' => false, 'error' => 'Please select a specialization.']);
 
     // If this is a new department, save it to the departments table
     $checkDept = $conn->prepare("SELECT id FROM departments WHERE name = ?");
@@ -513,14 +503,14 @@ function ajaxGetDepartments(mysqli $conn): never
 function ajaxAddDepartment(mysqli $conn): never
 {
     $name = strtoupper(trim($_POST['name'] ?? ''));
-    if (!$name) jsonResponse(['ok' => false, 'error' => 'Department name is required.']);
+    if (!$name) jsonResponse(['ok' => false, 'error' => 'Specialization name is required.']);
 
     // Check duplicate
     $check = $conn->prepare("SELECT id FROM departments WHERE name = ?");
     $check->bind_param('s', $name);
     $check->execute();
     if ($check->get_result()->fetch_assoc()) {
-        jsonResponse(['ok' => false, 'error' => 'Department already exists.']);
+        jsonResponse(['ok' => false, 'error' => 'Specialization already exists.']);
     }
 
     $stmt = $conn->prepare("INSERT INTO departments (name) VALUES (?)");
@@ -543,7 +533,7 @@ function ajaxDeleteDepartment(mysqli $conn): never
     $check->execute();
     $row = $check->get_result()->fetch_assoc();
     if ($row['c'] > 0) {
-        jsonResponse(['ok' => false, 'error' => "Cannot delete — {$row['c']} doctor(s) still assigned to this department."]);
+        jsonResponse(['ok' => false, 'error' => "Cannot delete — {$row['c']} doctor(s) still assigned to this specialization."]);
     }
 
     $stmt = $conn->prepare("DELETE FROM departments WHERE id = ?");
@@ -977,14 +967,12 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
         /* ── Tentative pill ── */
         .tentative-pill {
             display: inline-block;
-            background: rgba(245,158,11,0.15); color: #92400e;
-            padding: 2px 8px; border-radius: 4px;
+            color: #000000;
             font-size: 10px; font-weight: 700;
             margin-left: 6px;
-            border: 1px dashed rgba(245,158,11,0.5);
         }
 
-        /* ── Overdue pill — tentative date has already passed, needs admin review ── */
+        /* ── Overdue pills — dates that have passed, need admin review ── */
         .overdue-pill {
             display: inline-block;
             background: rgba(220,53,69,0.12); color: #b91c1c;
@@ -992,6 +980,15 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
             font-size: 10px; font-weight: 700;
             margin-left: 6px;
             border: 1px dashed rgba(220,53,69,0.5);
+            animation: pulse-overdue 1.6s ease-in-out infinite;
+        }
+        .overdue-confirmed-pill {
+            display: inline-block;
+            background: rgba(217,119,6,0.12); color: #92400e;
+            padding: 2px 8px; border-radius: 4px;
+            font-size: 10px; font-weight: 700;
+            margin-left: 6px;
+            border: 1px dashed rgba(217,119,6,0.5);
             animation: pulse-overdue 1.6s ease-in-out infinite;
         }
         @keyframes pulse-overdue {
@@ -1116,7 +1113,7 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
         <?php endif; ?>
         <a class="nav-item" id="nav-departments" onclick="showPage('departments')">
             <i class="bi bi-diagram-3-fill"></i>
-            <span class="nav-label">Departments</span>
+            <span class="nav-label">Specializations</span>
         </a>
 
         <span class="nav-section-label">Settings</span>
@@ -1203,7 +1200,7 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
                     <thead>
                         <tr>
                             <th>Name</th>
-                            <th>Department</th>
+                            <th>Specialization</th>
                             <th>Status</th>
                             <th>Resume Date</th>
                         </tr>
@@ -1228,7 +1225,7 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
                                placeholder="Search by name…" oninput="filterTable()" style="width:200px;">
                     </div>
                     <select id="f-dept" class="form-select" onchange="filterTable()" style="width:150px;">
-                        <option value="">All Departments</option>
+                        <option value="">All Specializations</option>
                         <?php foreach ($deptList as $d): ?>
                         <option><?= htmlspecialchars($d) ?></option>
                         <?php endforeach; ?>
@@ -1264,7 +1261,7 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
                         <tr>
                             <th style="width:40px;"><input type="checkbox" id="select-all" onclick="toggleSelectAll()"></th>
                             <th onclick="sortTable(1)">Name <i class="bi bi-arrow-down-up" style="font-size:10px;opacity:.5;" id="si-1"></i></th>
-                            <th onclick="sortTable(2)">Department <i class="bi bi-arrow-down-up" style="font-size:10px;opacity:.5;" id="si-2"></i></th>
+                            <th onclick="sortTable(2)">Specialization <i class="bi bi-arrow-down-up" style="font-size:10px;opacity:.5;" id="si-2"></i></th>
                             <th onclick="sortTable(3)">Status <i class="bi bi-arrow-down-up" style="font-size:10px;opacity:.5;" id="si-3"></i></th>
                             <th>Resume Date</th>
                             <th>Leave Type</th>
@@ -1396,7 +1393,7 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
                     <thead>
                         <tr>
                             <th style="width:50px;">#</th>
-                            <th>Department Name</th>
+                            <th>Specialization Name</th>
                             <th style="width:100px;">Actions</th>
                         </tr>
                     </thead>
@@ -1429,9 +1426,9 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
                         <input type="text" class="form-control" id="m-name" placeholder="e.g. Dr. Juan Dela Cruz">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label-custom">Department *</label>
+                        <label class="form-label-custom">Specialization *</label>
                         <select class="form-select" id="m-dept">
-                            <option value="">Select Department</option>
+                            <option value="">Select Specialization</option>
                             <?php foreach ($deptList as $d): ?>
                             <option><?= htmlspecialchars($d) ?></option>
                             <?php endforeach; ?>
@@ -1675,7 +1672,7 @@ const PAGE_META = {
     doctors   : { title: 'Doctor List',      sub: 'Manage all doctor records' },
     display   : { title: 'Display Settings', sub: 'Configure TV display scroll behavior' },
     users       : { title: 'User Accounts', sub: 'Manage admin user accounts' },
-    departments : { title: 'Departments',   sub: 'Manage department list for the doctor form' },
+    departments : { title: 'Specializations',   sub: 'Manage specialization list for the doctor form' },
 };
 
 // ============================================================
@@ -1814,8 +1811,8 @@ function renderTable(doctors) {
         const resumePast = d.resume_date && new Date(d.resume_date) < today;
         const resumeHtml = d.resume_date
             ? `${fmtDate(d.resume_date)}${
-                d.is_tentative && resumePast
-                    ? '<span class="overdue-pill">⚠ OVERDUE — Review</span>'
+                resumePast
+                    ? (d.is_tentative ? '<span class="overdue-pill">⚠ OVERDUE — Review</span>' : '<span class="overdue-confirmed-pill">⚠ EXPIRED — Review</span>')
                     : d.is_tentative
                         ? '<span class="tentative-pill">TENTATIVE</span>'
                         : ''
@@ -1916,7 +1913,7 @@ function clearAllFilters() {
 // In-memory list of departments — seeded from PHP, updated after each save
 let allDepartments = <?= json_encode($deptList) ?>;
 
-/** Rebuild both department dropdowns (modal + filter) from allDepartments. */
+/** Rebuild both specialization dropdowns (modal + filter) from allDepartments. */
 function populateDeptDropdowns() {
     const opts = allDepartments.map(d =>
         `<option value="${escH(d)}">${escH(d)}</option>`
@@ -1926,7 +1923,7 @@ function populateDeptDropdowns() {
     const mDept = document.getElementById('m-dept');
     if (mDept) {
         const cur = mDept.value;
-        mDept.innerHTML = '<option value="">Select Department</option>' + opts;
+        mDept.innerHTML = '<option value="">Select Specialization</option>' + opts;
         if (cur) mDept.value = cur;
     }
 
@@ -1934,7 +1931,7 @@ function populateDeptDropdowns() {
     const fDept = document.getElementById('f-dept');
     if (fDept) {
         const cur = fDept.value;
-        fDept.innerHTML = '<option value="">All Departments</option>' + opts;
+        fDept.innerHTML = '<option value="">All Specializations</option>' + opts;
         if (cur) fDept.value = cur;
     }
 }
@@ -2005,7 +2002,7 @@ async function saveDoctor() {
 
     // Validate each field individually for accurate error messages
     if (!name)   { showFormError(errEl, 'Doctor name is required.'); return; }
-    if (!dept)   { showFormError(errEl, 'Please select a department.'); return; }
+    if (!dept)   { showFormError(errEl, 'Please select a specialization.'); return; }
     if (!status) { showFormError(errEl, 'Please select a status.'); return; }
     if (status === 'On Leave' && !resume)  { showFormError(errEl, 'Resume date is required for On Leave.'); return; }
     if (status === 'On Leave' && !remarks) { showFormError(errEl, 'Please select a leave type.'); return; }
@@ -2371,7 +2368,7 @@ async function addDepartment() {
     errEl.style.display = 'none';
 
     if (!name) {
-        errEl.textContent   = 'Department name is required.';
+        errEl.textContent   = 'Specialization name is required.';
         errEl.style.display = 'block';
         return;
     }

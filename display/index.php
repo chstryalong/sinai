@@ -37,25 +37,19 @@ function loadDoctorGroups(mysqli $conn): array
 }
 
 /**
- * Reset confirmed On Leave doctors whose resume date has passed.
- * Mirrors the same logic in admin/index.php — ensures the display board
- * stays accurate even if nobody opens the admin panel that day.
- * Tentative dates are skipped — admin must review those manually.
+ * Both confirmed and tentative leave records are now flagged for manual admin review
+ * when their resume date has passed. Auto-cleanup is disabled to prevent unintended
+ * status changes.
+ *
+ * - is_tentative = 0 + resume_date < TODAY  →  left on leave; flagged in UI
+ * - is_tentative = 1 + resume_date < TODAY  →  left on leave; flagged in UI
+ *
+ * Runs on every page load — admins must manually review and update expired leaves.
  */
 function autoCleanExpiredLeave(mysqli $conn): void
 {
-    $stmt = $conn->prepare("
-        UPDATE doctors
-        SET    status       = 'No Medical',
-               resume_date  = NULL,
-               remarks      = NULL,
-               is_tentative = 0
-        WHERE  status        = 'On Leave'
-          AND  is_tentative  = 0
-          AND  resume_date  IS NOT NULL
-          AND  resume_date   < CURDATE()
-    ");
-    $stmt->execute();
+    // Auto-cleanup disabled. Both tentative and confirmed expired dates are now
+    // flagged in the UI for manual admin review instead of auto-resetting.
 }
 
 /** Load display scroll settings (or return safe defaults). */
@@ -277,11 +271,13 @@ $onLeaveWithDate = array_values(array_filter($groups['on_leave'], fn($d) => !emp
 
         .doctor-icon { font-size: 1.8vw; flex-shrink: 0; color: #0052CC; }
 
-        .doctor-department {
+        .doctor-specialization {
             font-size: 1.5vw;
             font-weight: 600;
             color: #444;
-            padding-left: 2.4vw;
+            display: flex;
+            align-items: center;
+            gap: 0.6vw;
         }
 
         .resume-date {
@@ -298,13 +294,26 @@ $onLeaveWithDate = array_values(array_filter($groups['on_leave'], fn($d) => !emp
         .tentative-badge {
             font-size: 1.1vw;
             font-weight: 700;
-            color: #856404;
-            background: rgba(255,193,7,0.2);
-            border: 0.15vw dashed rgba(255,193,7,0.7);
+            color: #000000;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .expired-badge {
+            font-size: 1.1vw;
+            font-weight: 700;
+            color: #92400e;
+            background: rgba(217,119,6,0.2);
+            border: 0.15vw dashed rgba(217,119,6,0.7);
             padding: 0.3vh 0.7vw;
             border-radius: 0.4vw;
             white-space: nowrap;
             flex-shrink: 0;
+            animation: pulse-expired 1.6s ease-in-out infinite;
+        }
+        @keyframes pulse-expired {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.5; }
         }
 
         .remarks-line {
@@ -330,9 +339,10 @@ $onLeaveWithDate = array_values(array_filter($groups['on_leave'], fn($d) => !emp
             .doctor-name,
             .doctor-name-left  { font-size: 2.1vw; }
             .doctor-icon       { font-size: 1.9vw; }
-            .doctor-department { font-size: 1.6vw; padding-left: 2.5vw; }
+            .doctor-specialization { font-size: 1.6vw; }
             .resume-date       { font-size: 1.6vw; padding: 0.4vh 0.9vw; }
-            .tentative-badge   { font-size: 1.15vw; padding: 0.3vh 0.6vw; }
+            .tentative-badge   { font-size: 1.15vw; }
+            .expired-badge     { font-size: 1.15vw; padding: 0.3vh 0.6vw; }
             .remarks-line      { font-size: 1.5vw; padding-left: 2.5vw; }
             .doctor-card       { padding: 1.4vh 1.4vw; }
         }
@@ -347,9 +357,10 @@ $onLeaveWithDate = array_values(array_filter($groups['on_leave'], fn($d) => !emp
             .doctor-name,
             .doctor-name-left  { font-size: 2.4vw; }
             .doctor-icon       { font-size: 2.2vw; }
-            .doctor-department { font-size: 1.9vw; padding-left: 2.9vw; }
+            .doctor-specialization { font-size: 1.9vw; }
             .resume-date       { font-size: 1.8vw; }
             .tentative-badge   { font-size: 1.3vw; }
+            .expired-badge     { font-size: 1.3vw; }
             .remarks-line      { font-size: 1.7vw; padding-left: 2.9vw; }
             .doctor-card       { padding: 1.3vh 1.6vw; border-radius: 1vw; }
         }
@@ -365,9 +376,10 @@ $onLeaveWithDate = array_values(array_filter($groups['on_leave'], fn($d) => !emp
             .doctor-name,
             .doctor-name-left  { font-size: 4vw; }
             .doctor-icon       { font-size: 3.6vw; }
-            .doctor-department { font-size: 3vw; padding-left: 5vw; }
+            .doctor-specialization { font-size: 3vw; }
             .resume-date       { font-size: 3vw; padding: 0.4vh 1.5vw; }
-            .tentative-badge   { font-size: 2.2vw; padding: 0.3vh 1.5vw; }
+            .tentative-badge   { font-size: 2.2vw; }
+            .expired-badge     { font-size: 2.2vw; padding: 0.3vh 1.5vw; }
             .remarks-line      { font-size: 2.8vw; padding-left: 5vw; }
             .doctor-card       { padding: 1.5vh 3vw; border-radius: 2vw; border-left-width: 1vw; }
             .col-list          { min-height: 30vh; }
@@ -383,9 +395,10 @@ $onLeaveWithDate = array_values(array_filter($groups['on_leave'], fn($d) => !emp
             .doctor-name,
             .doctor-name-left  { font-size: 4.5vw; }
             .doctor-icon       { font-size: 4vw; }
-            .doctor-department { font-size: 3.4vw; padding-left: 5.5vw; }
+            .doctor-specialization { font-size: 3.4vw; }
             .resume-date       { font-size: 3.2vw; }
             .tentative-badge   { font-size: 2.5vw; }
+            .expired-badge     { font-size: 2.5vw; }
             .remarks-line      { font-size: 3vw; padding-left: 5.5vw; }
             .doctor-card       { padding: 1.5vh 3.5vw; }
         }
@@ -400,9 +413,10 @@ $onLeaveWithDate = array_values(array_filter($groups['on_leave'], fn($d) => !emp
             .doctor-name,
             .doctor-name-left  { font-size: 5.5vw; gap: 1.5vw; }
             .doctor-icon       { font-size: 5vw; }
-            .doctor-department { font-size: 4vw; padding-left: 7vw; }
+            .doctor-specialization { font-size: 4vw; }
             .resume-date       { font-size: 3.8vw; padding: 0.4vh 2vw; border-radius: 1.5vw; }
-            .tentative-badge   { font-size: 3vw; padding: 0.3vh 2vw; border-radius: 1.2vw; }
+            .tentative-badge   { font-size: 3vw; }
+            .expired-badge     { font-size: 3vw; padding: 0.3vh 2vw; border-radius: 1.2vw; }
             .remarks-line      { font-size: 3.6vw; padding-left: 7vw; }
             .doctor-card       { padding: 1.5vh 4vw; border-radius: 3vw; border-left-width: 1.2vw; }
             .col-header        { padding-bottom: 1.2vh; }
@@ -414,7 +428,7 @@ $onLeaveWithDate = array_values(array_filter($groups['on_leave'], fn($d) => !emp
             .current-date      { font-size: 4.5vw; }
             .doctor-name,
             .doctor-name-left  { font-size: 6vw; }
-            .doctor-department { font-size: 4.5vw; }
+            .doctor-specialization { font-size: 4.5vw; }
             .resume-date       { font-size: 4.2vw; }
             .remarks-line      { font-size: 4vw; }
         }
@@ -441,8 +455,9 @@ $onLeaveWithDate = array_values(array_filter($groups['on_leave'], fn($d) => !emp
                         <i class="doctor-icon bi bi-person-fill"></i>
                         <span><?= htmlspecialchars($doctor['name']) ?></span>
                     </div>
-                    <div class="doctor-department">
-                        <?= htmlspecialchars($doctor['department'] ?? 'General') ?>
+                    <div class="doctor-specialization">
+                        <i class="doctor-icon bi bi-building"></i>
+                        <span><?= htmlspecialchars($doctor['department'] ?? 'General') ?></span>
                     </div>
                 </div>
                 <?php endforeach; ?>
@@ -469,6 +484,9 @@ $onLeaveWithDate = array_values(array_filter($groups['on_leave'], fn($d) => !emp
                 // Show doctors without a resume date first, then those with one
                 foreach (array_merge($onLeaveNoDate, $onLeaveWithDate) as $doctor):
                     $remarks = trim($doctor['remarks'] ?? '');
+                    $today = new DateTime();
+                    $today->setTime(0, 0, 0);
+                    $resumePast = !empty($doctor['resume_date']) && new DateTime($doctor['resume_date']) < $today;
                 ?>
                 <div class="doctor-card">
                     <div class="doctor-name-row">
@@ -484,13 +502,26 @@ $onLeaveWithDate = array_values(array_filter($groups['on_leave'], fn($d) => !emp
                     </div>
 
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <div class="doctor-department">
-                            <?= htmlspecialchars($doctor['department'] ?? 'General') ?>
+                        <div class="doctor-specialization">
+                            <i class="doctor-icon bi bi-building"></i>
+                            <span><?= htmlspecialchars($doctor['department'] ?? 'General') ?></span>
                         </div>
-                        <?php if (!empty($doctor['resume_date']) && ($doctor['is_tentative'] ?? 0) == 1): ?>
-                        <div class="tentative-badge">
-                            <i class="bi bi-calendar-question"></i> TENTATIVE
-                        </div>
+                        <?php if (!empty($doctor['resume_date'])): ?>
+                            <?php if ($resumePast): ?>
+                                <?php if (($doctor['is_tentative'] ?? 0) == 1): ?>
+                                <div class="tentative-badge">
+                                    <i class="bi bi-calendar-question"></i> OVERDUE
+                                </div>
+                                <?php else: ?>
+                                <div class="expired-badge">
+                                    <i class="bi bi-calendar-x"></i> EXPIRED
+                                </div>
+                                <?php endif; ?>
+                            <?php elseif (($doctor['is_tentative'] ?? 0) == 1): ?>
+                            <div class="tentative-badge">
+                                <i class="bi bi-calendar-question"></i> TENTATIVE
+                            </div>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
 
@@ -658,18 +689,24 @@ setInterval(updateDateDisplay, 60_000);
                 <i class="doctor-icon bi bi-person-fill"></i>
                 <span>${escH(doctor.name)}</span>
             </div>
-            <div class="doctor-department">${escH(doctor.department ?? 'General')}</div>
+            <div class="doctor-specialization"><i class="doctor-icon bi bi-building"></i><span>${escH(doctor.department ?? 'General')}</span></div>
         `;
         return card;
     }
 
     function buildOnLeaveCard(doctor) {
         const remarks    = (doctor.remarks ?? '').trim();
+        const today      = new Date(); today.setHours(0,0,0,0);
+        const resumePast = doctor.resume_date && new Date(doctor.resume_date) < today;
         const dateHtml   = doctor.resume_date
             ? `<div class="resume-date">${fmtDate(doctor.resume_date)}</div>`
             : '';
-        const tentHtml   = (doctor.resume_date && doctor.is_tentative == 1)
-            ? `<div class="tentative-badge"><i class="bi bi-calendar-question"></i> TENTATIVE</div>`
+        const badgeHtml  = doctor.resume_date
+            ? resumePast
+                ? (doctor.is_tentative == 1 ? '<div class="tentative-badge"><i class="bi bi-calendar-question"></i> OVERDUE</div>' : '<div class="expired-badge"><i class="bi bi-calendar-x"></i> EXPIRED</div>')
+                : doctor.is_tentative == 1
+                    ? '<div class="tentative-badge"><i class="bi bi-calendar-question"></i> TENTATIVE</div>'
+                    : ''
             : '';
         const remarksHtml = remarks
             ? `<div class="remarks-line"><strong>Remarks:</strong> ${escH(remarks)}</div>`
@@ -686,8 +723,8 @@ setInterval(updateDateDisplay, 60_000);
                 ${dateHtml}
             </div>
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div class="doctor-department">${escH(doctor.department ?? 'General')}</div>
-                ${tentHtml}
+                <div class="doctor-specialization"><i class="doctor-icon bi bi-building"></i><span>${escH(doctor.department ?? 'General')}</span></div>
+                ${badgeHtml}
             </div>
             ${remarksHtml}
         `;
