@@ -525,6 +525,20 @@ function updateDateDisplay() {
 updateDateDisplay();
 setInterval(updateDateDisplay, 60_000);
 
+// ── Fullscreen on load ────────────────────────────────────────
+function requestFullscreen() {
+    const el = document.documentElement;
+    if (el.requestFullscreen)            el.requestFullscreen();
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    else if (el.mozRequestFullScreen)    el.mozRequestFullScreen();
+    else if (el.msRequestFullscreen)     el.msRequestFullscreen();
+}
+
+document.addEventListener('click', function enterFS() {
+    requestFullscreen();
+    document.removeEventListener('click', enterFS);
+}, { once: true });
+
 // ============================================================
 //  Scroll engine
 // ============================================================
