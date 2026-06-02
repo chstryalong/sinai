@@ -199,22 +199,19 @@ function ajaxSaveDoctor(mysqli $conn): never
         $remarks   = null;
     }
 
-    $null = null; // placeholder for unset time columns
-
     if ($id === 0) {
         $stmt = $conn->prepare(
-            "INSERT INTO doctors (name, department, status, resume_date, appt_start, appt_end, remarks, is_tentative)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO doctors (name, department, status, resume_date, remarks, is_tentative)
+             VALUES (?, ?, ?, ?, ?, ?)"
         );
-        $stmt->bind_param('sssssssi', $name, $dept, $status, $resume, $null, $null, $remarks, $tentative);
+        $stmt->bind_param('ssssis', $name, $dept, $status, $resume, $remarks, $tentative);
     } else {
         $stmt = $conn->prepare(
             "UPDATE doctors
-             SET name = ?, department = ?, status = ?, resume_date = ?,
-                 appt_start = ?, appt_end = ?, remarks = ?, is_tentative = ?
+             SET name = ?, department = ?, status = ?, resume_date = ?, remarks = ?, is_tentative = ?
              WHERE id = ?"
         );
-        $stmt->bind_param('sssssssii', $name, $dept, $status, $resume, $null, $null, $remarks, $tentative, $id);
+        $stmt->bind_param('sssssii', $name, $dept, $status, $resume, $remarks, $tentative, $id);
     }
 
     $stmt->execute();

@@ -775,16 +775,23 @@ setInterval(updateDateDisplay, 60_000);
     // ── Polling ───────────────────────────────────────────────────────────
 
     async function pollServer() {
-        try {
-            const res  = await fetch(window.location.pathname + '?ajax=1');
-            if (!res.ok) return;
-            const data = await res.json();
-            if (data.display_settings) applySettingsUpdate(data.display_settings);
-            if (data.doctors)          applyDoctorUpdate(data.doctors);
-        } catch {
-            // Network blip — fail silently, will retry on next interval
-        }
+    try {
+        const res = await fetch(window.location.pathname + '?ajax=1');
+
+        console.log('Status:', res.status);
+
+        const text = await res.text();
+        console.log(text);
+
+        const data = JSON.parse(text);
+
+        if (data.display_settings) applySettingsUpdate(data.display_settings);
+        if (data.doctors) applyDoctorUpdate(data.doctors);
+
+    } catch (err) {
+        console.error('Poll error:', err);
     }
+}
 
     // ── Init ──────────────────────────────────────────────────────────────
 
