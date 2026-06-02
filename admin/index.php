@@ -204,7 +204,7 @@ function ajaxSaveDoctor(mysqli $conn): never
             "INSERT INTO doctors (name, department, status, resume_date, remarks, is_tentative)
              VALUES (?, ?, ?, ?, ?, ?)"
         );
-        $stmt->bind_param('ssssis', $name, $dept, $status, $resume, $remarks, $tentative);
+        $stmt->bind_param('sssssi', $name, $dept, $status, $resume, $remarks, $tentative);
     } else {
         $stmt = $conn->prepare(
             "UPDATE doctors
