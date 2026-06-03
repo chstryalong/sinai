@@ -525,7 +525,7 @@ function updateDateDisplay() {
 updateDateDisplay();
 setInterval(updateDateDisplay, 60_000);
 
-// ── Fullscreen on load ────────────────────────────────────────
+// ── Fullscreen toggle (single tap = enter, double tap = exit) ────
 function requestFullscreen() {
     const el = document.documentElement;
     if (el.requestFullscreen)            el.requestFullscreen();
@@ -534,10 +534,28 @@ function requestFullscreen() {
     else if (el.msRequestFullscreen)     el.msRequestFullscreen();
 }
 
-document.addEventListener('click', function enterFS() {
-    requestFullscreen();
-    document.removeEventListener('click', enterFS);
-}, { once: true });
+function exitFullscreen() {
+    if (document.exitFullscreen)            document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    else if (document.mozCancelFullScreen)  document.mozCancelFullScreen();
+    else if (document.msExitFullscreen)     document.msExitFullscreen();
+}
+
+let lastTap = 0;
+document.addEventListener('click', function () {
+    const now = Date.now();
+    const timeSinceLast = now - lastTap;
+
+    if (timeSinceLast < 300 && timeSinceLast > 0) {
+        // Double tap — exit fullscreen
+        exitFullscreen();
+    } else {
+        // Single tap — enter fullscreen
+        requestFullscreen();
+    }
+
+    lastTap = now;
+});
 
 // ============================================================
 //  Scroll engine
