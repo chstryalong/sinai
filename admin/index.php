@@ -166,6 +166,14 @@ function ajaxSaveDoctor(mysqli $conn): never
     if (!$name)   jsonResponse(['ok' => false, 'error' => 'Doctor name is required.']);
     if (!$dept)   jsonResponse(['ok' => false, 'error' => 'Please select a specialization.']);
 
+    // Server-side duplicate check: prevent scheduling the same doctor name twice
+    $checkDupe = $conn->prepare("SELECT id FROM doctors WHERE name = ? AND id != ?");
+    $checkDupe->bind_param('si', $name, $id);
+    $checkDupe->execute();
+    if ($checkDupe->get_result()->fetch_assoc()) {
+        jsonResponse(['ok' => false, 'error' => 'This doctor is already scheduled. Edit the existing record instead.']);
+    }
+
     // If this is a new department, save it to the departments table
     $checkDept = $conn->prepare("SELECT id FROM departments WHERE name = ?");
     $checkDept->bind_param('s', $dept);
@@ -540,15 +548,103 @@ function ajaxDeleteDepartment(mysqli $conn): never
     jsonResponse(['ok' => true]);
 }
 
+/**
+ * GET ?ajax=registered_doctors — return all registered doctors
+ */
+function ajaxGetRegisteredDoctors(mysqli $conn): never
+{
+    $rows = $conn->query("SELECT id, name, department FROM registered_doctors ORDER BY name ASC");
+    $doctors = [];
+    while ($row = $rows->fetch_assoc()) $doctors[] = $row;
+    jsonResponse(['ok' => true, 'registered_doctors' => $doctors]);
+}
+
+/**
+ * POST ajax=save_registered_doctor — add or update a registered doctor
+ */
+function ajaxSaveRegisteredDoctor(mysqli $conn): never
+{
+    $id         = (int) ($_POST['id'] ?? 0);
+    $name       = strtoupper(trim($_POST['name'] ?? ''));
+    $department = strtoupper(trim($_POST['department'] ?? ''));
+
+    if (!$name) jsonResponse(['ok' => false, 'error' => 'Doctor name is required.']);
+    if (!$department) jsonResponse(['ok' => false, 'error' => 'Specialization is required.']);
+
+    // Prevent duplicate registered doctor names.
+    $checkSql = $id === 0
+        ? "SELECT id FROM registered_doctors WHERE name = ?"
+        : "SELECT id FROM registered_doctors WHERE name = ? AND id != ?";
+    $check = $conn->prepare($checkSql);
+    if ($id === 0) {
+        $check->bind_param('s', $name);
+    } else {
+        $check->bind_param('si', $name, $id);
+    }
+    $check->execute();
+    if ($check->get_result()->fetch_assoc()) {
+        jsonResponse(['ok' => false, 'error' => 'This doctor is already registered.']);
+    }
+
+    // Ensure department exists in the master list.
+    $deptCheck = $conn->prepare("SELECT id FROM departments WHERE name = ?");
+    $deptCheck->bind_param('s', $department);
+    $deptCheck->execute();
+    if (!$deptCheck->get_result()->fetch_assoc()) {
+        $deptInsert = $conn->prepare("INSERT INTO departments (name) VALUES (?)");
+        $deptInsert->bind_param('s', $department);
+        $deptInsert->execute();
+    }
+
+    if ($id === 0) {
+        $stmt = $conn->prepare("INSERT INTO registered_doctors (name, department) VALUES (?, ?)");
+        $stmt->bind_param('ss', $name, $department);
+    } else {
+        $stmt = $conn->prepare("UPDATE registered_doctors SET name = ?, department = ? WHERE id = ?");
+        $stmt->bind_param('ssi', $name, $department, $id);
+    }
+    $stmt->execute();
+
+    jsonResponse(['ok' => true, 'id' => $id ?: $conn->insert_id, 'name' => $name, 'department' => $department]);
+}
+
+/**
+ * POST ajax=delete_registered_doctor — remove a registered doctor
+ */
+function ajaxDeleteRegisteredDoctor(mysqli $conn): never
+{
+    $id = (int) ($_POST['id'] ?? 0);
+    if (!$id) jsonResponse(['ok' => false, 'error' => 'Invalid id.']);
+
+    $stmt = $conn->prepare("DELETE FROM registered_doctors WHERE id = ?");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+
+    jsonResponse(['ok' => true]);
+}
+
 // ============================================================
 //  BOOTSTRAP  (auth context → route)
 // ============================================================
 
 // Resolve the currently logged-in user
-// Load departments for dropdowns
+// Ensure the registry table exists and load departments + registered doctors for dropdowns.
+$conn->query("CREATE TABLE IF NOT EXISTS registered_doctors (
+        id INT(11) NOT NULL AUTO_INCREMENT,
+        name VARCHAR(100) NOT NULL UNIQUE,
+        department VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 $deptResult  = $conn->query("SELECT name FROM departments ORDER BY name ASC");
 $deptList    = [];
 while ($dr = $deptResult->fetch_assoc()) $deptList[] = $dr['name'];
+
+$regResult = $conn->query("SELECT id, name, department FROM registered_doctors ORDER BY name ASC");
+$registeredDoctors = [];
+while ($rr = $regResult->fetch_assoc()) $registeredDoctors[] = $rr;
 
 $currentUsername = $_SESSION['admin'];
 $currentUser = $conn->prepare("SELECT * FROM users WHERE username = ?");
@@ -560,28 +656,31 @@ $isSuperadmin = !empty($me['is_superadmin']);
 // ── Route AJAX GET requests ───────────────────────────────────────────────────
 if (isset($_GET['ajax'])) {
     match ($_GET['ajax']) {
-        'doctors'     => ajaxGetDoctors($conn),
-        'users'       => ajaxGetUsers($conn, $isSuperadmin),
-        'departments' => ajaxGetDepartments($conn),
-        default       => jsonResponse(['ok' => false, 'error' => 'Unknown endpoint.']),
+        'doctors'             => ajaxGetDoctors($conn),
+        'users'               => ajaxGetUsers($conn, $isSuperadmin),
+        'departments'         => ajaxGetDepartments($conn),
+        'registered_doctors'  => ajaxGetRegisteredDoctors($conn),
+        default               => jsonResponse(['ok' => false, 'error' => 'Unknown endpoint.']),
     };
 }
 
 // ── Route AJAX POST requests ──────────────────────────────────────────────────
 if (isset($_POST['ajax'])) {
     match ($_POST['ajax']) {
-        'save_doctor'      => ajaxSaveDoctor($conn),
-        'delete_doctor'    => ajaxDeleteDoctor($conn),
-        'delete_selected'  => ajaxDeleteSelected($conn),
-        'delete_all'       => ajaxDeleteAll($conn),
-        'save_display'     => ajaxSaveDisplay($conn),
-        'change_password'  => ajaxChangePassword($conn),
-        'add_user'         => ajaxAddUser($conn, $isSuperadmin),
-        'edit_user'        => ajaxEditUser($conn, $isSuperadmin),
-        'delete_user'      => ajaxDeleteUser($conn, $isSuperadmin, $currentUsername),
-        'add_department'    => ajaxAddDepartment($conn),
-        'delete_department' => ajaxDeleteDepartment($conn),
-        default             => jsonResponse(['ok' => false, 'error' => 'Unknown endpoint.']),
+        'save_doctor'             => ajaxSaveDoctor($conn),
+        'delete_doctor'           => ajaxDeleteDoctor($conn),
+        'delete_selected'         => ajaxDeleteSelected($conn),
+        'delete_all'              => ajaxDeleteAll($conn),
+        'save_display'            => ajaxSaveDisplay($conn),
+        'change_password'         => ajaxChangePassword($conn),
+        'add_user'                => ajaxAddUser($conn, $isSuperadmin),
+        'edit_user'               => ajaxEditUser($conn, $isSuperadmin),
+        'delete_user'             => ajaxDeleteUser($conn, $isSuperadmin, $currentUsername),
+        'add_department'          => ajaxAddDepartment($conn),
+        'delete_department'       => ajaxDeleteDepartment($conn),
+        'save_registered_doctor'  => ajaxSaveRegisteredDoctor($conn),
+        'delete_registered_doctor'=> ajaxDeleteRegisteredDoctor($conn),
+        default                    => jsonResponse(['ok' => false, 'error' => 'Unknown endpoint.']),
     };
 }
 
@@ -1017,7 +1116,7 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
         .form-label-custom { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: block; }
 
         /* ── Uppercase inputs ── */
-        #m-name, #dept-new-name { text-transform: uppercase; }
+        #m-name, #dept-new-name, #rd-name { text-transform: uppercase; }
 
         /* ── Password input with eye toggle ── */
         .pw-wrap { position: relative; }
@@ -1099,6 +1198,10 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
         <a class="nav-item" id="nav-doctors" onclick="showPage('doctors')">
             <i class="bi bi-person-lines-fill"></i>
             <span class="nav-label">Doctor List</span>
+        </a>
+        <a class="nav-item" id="nav-registered" onclick="showPage('registered')">
+            <i class="bi bi-journal-medical"></i>
+            <span class="nav-label">Registered Doctors</span>
         </a>
 
         <?php if ($isSuperadmin): ?>
@@ -1240,7 +1343,7 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
             <div class="section-card-header" style="border-top:none; padding-top:0; justify-content:flex-end;">
                 <div style="display:flex; gap:8px;">
                     <button class="btn-primary-custom" onclick="showDoctorModal()">
-                        <i class="bi bi-plus-lg"></i> Add Doctor
+                        <i class="bi bi-plus-lg"></i> Add Registered Doctor
                     </button>
                     <button class="btn-icon btn-delete-sm" id="delete-selected-btn"
                             onclick="deleteSelected()" style="display:none; padding:10px 14px;">
@@ -1266,6 +1369,33 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
                         </tr>
                     </thead>
                     <tbody id="doctor-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Registered Doctors ── -->
+    <div class="page" id="page-registered">
+        <div class="section-card">
+            <div class="section-card-header">
+                <div class="section-card-title"><i class="bi bi-journal-medical"></i> Registered Doctors</div>
+                <button class="btn-primary-custom" onclick="showRegisteredDoctorModal()">
+                    <i class="bi bi-plus-lg"></i> Register Doctor
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Doctor Name</th>
+                            <th>Specialization</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="registered-tbody">
+                        <tr><td colspan="4" class="table-empty">Loading…</td></tr>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -1413,23 +1543,33 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
     <div class="modal-dialog modal-lg">
         <div class="modal-content" style="border:none; border-radius:14px; overflow:hidden;">
             <div class="modal-title-bar">
-                <h5 id="doctorModalTitle"><i class="bi bi-plus-circle"></i> Add New Doctor</h5>
+                <h5 id="doctorModalTitle"><i class="bi bi-plus-circle"></i> Add Registered Doctor</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label class="form-label-custom">Doctor Name *</label>
-                        <input type="text" class="form-control" id="m-name" placeholder="e.g. Dr. Juan Dela Cruz">
+                        <label class="form-label-custom">Registered Doctor *</label>
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <div style="flex:1;">
+                                <select class="form-select" id="m-doctor" onchange="updateDoctorSpecialization()">
+                                    <option value="">Select registered doctor</option>
+                                    <?php foreach ($registeredDoctors as $rd): ?>
+                                    <option value="<?= htmlspecialchars($rd['id']) ?>" data-department="<?= htmlspecialchars($rd['department']) ?>"><?= htmlspecialchars($rd['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <div id="m-doctor-empty-msg" style="display:none; font-size:12px; color:var(--danger); margin-top:4px; font-weight:600;">
+                                    ⚠ All registered doctors are scheduled. <a href="#" onclick="event.preventDefault(); showRegisteredDoctorModal();" style="color:var(--primary); text-decoration:underline;">Register a new one</a>.
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-secondary" style="white-space:nowrap;" onclick="showRegisteredDoctorModal()">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label-custom">Specialization *</label>
-                        <select class="form-select" id="m-dept">
-                            <option value="">Select Specialization</option>
-                            <?php foreach ($deptList as $d): ?>
-                            <option><?= htmlspecialchars($d) ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                        <label class="form-label-custom">Specialization</label>
+                        <input type="text" class="form-control" id="m-dept" readonly placeholder="Will auto-fill from selected doctor">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label-custom">Status *</label>
@@ -1470,6 +1610,42 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn-primary-custom" onclick="saveDoctor()">
                     <i class="bi bi-check-circle"></i> Save Doctor
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Register Doctor Modal -->
+<div class="modal fade" id="registeredDoctorModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="border:none; border-radius:14px; overflow:hidden;">
+            <div class="modal-title-bar">
+                <h5 id="registeredDoctorModalTitle"><i class="bi bi-plus-circle"></i> Register Doctor</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="registered-doctor-error" style="display:none; color:var(--danger); font-size:13px; font-weight:600; padding:10px 14px; background:#fff5f5; border-radius:8px; border-left:3px solid var(--danger);"></div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label-custom">Doctor Name *</label>
+                        <input type="text" class="form-control" id="rd-name" placeholder="e.g. DR. JUAN DELA CRUZ">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label-custom">Specialization *</label>
+                        <select class="form-select" id="rd-department">
+                            <option value="">Select Specialization</option>
+                            <?php foreach ($deptList as $d): ?>
+                            <option><?= htmlspecialchars($d) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn-primary-custom" onclick="saveRegisteredDoctor()">
+                    <i class="bi bi-check-circle"></i> Save Registration
                 </button>
             </div>
         </div>
@@ -1653,11 +1829,12 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
 // ============================================================
 //  State
 // ============================================================
-let allDoctors   = <?= json_encode($initialDoctors) ?>;
-let editingId    = 0;
-let sortCol      = -1;
-let sortAsc      = true;
-let editingUserId = 0;
+let allDoctors         = <?= json_encode($initialDoctors) ?>;
+let registeredDoctors  = <?= json_encode($registeredDoctors) ?>;
+let editingId          = 0;
+let sortCol            = -1;
+let sortAsc            = true;
+let editingUserId      = 0;
 
 const IS_SUPERADMIN = <?= $isSuperadmin ? 'true' : 'false' ?>;
 
@@ -1665,11 +1842,12 @@ const SPEED_LABELS = { 15: 'Slow', 25: 'Normal', 50: 'Fast' };
 const PAUSE_LABELS = { 2000: '2 seconds', 3000: '3 seconds', 5000: '5 seconds', 8000: '8 seconds', 10000: '10 seconds' };
 
 const PAGE_META = {
-    dashboard : { title: 'Dashboard',        sub: 'Overview of doctor availability' },
-    doctors   : { title: 'Doctor List',      sub: 'Manage all doctor records' },
-    display   : { title: 'Display Settings', sub: 'Configure TV display scroll behavior' },
-    users       : { title: 'User Accounts', sub: 'Manage admin user accounts' },
-    departments : { title: 'Specializations',   sub: 'Manage specialization list for the doctor form' },
+    dashboard   : { title: 'Dashboard',        sub: 'Overview of doctor availability' },
+    doctors     : { title: 'Doctor List',      sub: 'Manage all doctor records' },
+    registered  : { title: 'Registered Doctors', sub: 'Manage doctor registry and specializations' },
+    display     : { title: 'Display Settings', sub: 'Configure TV display scroll behavior' },
+    users       : { title: 'User Accounts',     sub: 'Manage admin user accounts' },
+    departments : { title: 'Specializations',  sub: 'Manage specialization list for the doctor form' },
 };
 
 // ============================================================
@@ -1751,6 +1929,7 @@ function showPage(page) {
 
     if (page === 'users')       loadUsers();
     if (page === 'dashboard')   updateDashboard();
+    if (page === 'registered')  loadRegisteredDoctors();
     if (page === 'departments') loadDepartmentsPage();
 }
 
@@ -1901,6 +2080,117 @@ function clearAllFilters() {
     filterTable();
 }
 
+function populateDoctorDropdown(selectedId = null) {
+    const select = document.getElementById('m-doctor');
+    const emptyMsg = document.getElementById('m-doctor-empty-msg');
+    if (!select) return;
+
+    // Build a set of names currently scheduled to avoid duplicates
+    const usedNames = new Set(allDoctors.map(d => (d.name || '').toUpperCase()));
+
+    const available = registeredDoctors.filter(rd => !usedNames.has((rd.name || '').toUpperCase()) || rd.id == selectedId);
+    const opts = available
+        .map(d => `<option value="${escH(d.id)}" data-department="${escH(d.department)}">${escH(d.name)}</option>`)
+        .join('');
+
+    select.innerHTML = `<option value="">Select registered doctor</option>` + opts;
+    if (selectedId) select.value = String(selectedId);
+
+    // Disable select and show message if no available doctors
+    if (available.length === 0 && !selectedId) {
+        select.disabled = true;
+        if (emptyMsg) emptyMsg.style.display = 'block';
+    } else {
+        select.disabled = false;
+        if (emptyMsg) emptyMsg.style.display = 'none';
+    }
+
+    updateDoctorSpecialization();
+}
+
+function updateDoctorSpecialization() {
+    const doctorSelect = document.getElementById('m-doctor');
+    const deptInput = document.getElementById('m-dept');
+    if (!doctorSelect || !deptInput) return;
+    const selected = doctorSelect.selectedOptions[0];
+    deptInput.value = selected?.dataset.department ?? '';
+}
+
+async function loadRegisteredDoctors() {
+    const res = await fetch(window.location.pathname + '?ajax=registered_doctors');
+    const data = await res.json();
+    if (!data.ok) return;
+    registeredDoctors = data.registered_doctors || [];
+    renderRegisteredDoctorsTable(registeredDoctors);
+    populateDoctorDropdown();
+}
+
+function renderRegisteredDoctorsTable(doctors) {
+    const tbody = document.getElementById('registered-tbody');
+    if (!tbody) return;
+    if (!doctors.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="table-empty">No registered doctors yet. Add one above.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = doctors.map((doctor, index) => `
+        <tr>
+            <td style="color:var(--muted);">${index + 1}</td>
+            <td style="font-weight:600;">${escH(doctor.name)}</td>
+            <td>${escH(doctor.department)}</td>
+            <td>
+                <button class="btn-icon btn-edit-sm" onclick="showRegisteredDoctorModal(${doctor.id}, '${escH(doctor.name)}', '${escH(doctor.department)}')">
+                    <i class="bi bi-pencil"></i> Edit
+                </button>
+                <button class="btn-icon btn-delete-sm" onclick="deleteRegisteredDoctor(${doctor.id}, '${escH(doctor.name)}')">
+                    <i class="bi bi-trash"></i> Delete
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function showRegisteredDoctorModal(id = 0, name = '', department = '') {
+    document.getElementById('registeredDoctorModalTitle').innerHTML = id === 0
+        ? '<i class="bi bi-plus-circle"></i> Register Doctor'
+        : '<i class="bi bi-pencil"></i> Edit Registered Doctor';
+    document.getElementById('rd-name').value = name;
+    document.getElementById('rd-department').value = department;
+    document.getElementById('registered-doctor-error').style.display = 'none';
+    document.getElementById('registeredDoctorModal').dataset.editingId = id;
+    new bootstrap.Modal(document.getElementById('registeredDoctorModal')).show();
+}
+
+async function saveRegisteredDoctor() {
+    const id = parseInt(document.getElementById('registeredDoctorModal').dataset.editingId || '0', 10);
+    const name = document.getElementById('rd-name').value.trim().toUpperCase();
+    const department = document.getElementById('rd-department').value.trim().toUpperCase();
+    const errEl = document.getElementById('registered-doctor-error');
+
+    errEl.style.display = 'none';
+    if (!name) { errEl.textContent = 'Doctor name is required.'; errEl.style.display = 'block'; return; }
+    if (!department) { errEl.textContent = 'Specialization is required.'; errEl.style.display = 'block'; return; }
+
+    const res = await apiPost({ ajax: 'save_registered_doctor', id, name, department });
+
+    if (!res.ok) {
+        errEl.textContent = res.error;
+        errEl.style.display = 'block';
+        return;
+    }
+
+    bootstrap.Modal.getInstance(document.getElementById('registeredDoctorModal'))?.hide();
+    toast(id === 0 ? 'Doctor registered!' : 'Doctor updated!');
+    loadRegisteredDoctors();
+}
+
+async function deleteRegisteredDoctor(id, name) {
+    if (!confirm(`Delete registered doctor "${name}"? This will remove the record from the registry.`)) return;
+    const res = await apiPost({ ajax: 'delete_registered_doctor', id });
+    if (!res.ok) { toast(res.error ?? 'Delete failed', true); return; }
+    toast(`Registered doctor "${name}" deleted.`);
+    loadRegisteredDoctors();
+}
+
 // ── Doctor modal ──────────────────────────────────────────────────────────────
 
 // ============================================================
@@ -1916,12 +2206,12 @@ function populateDeptDropdowns() {
         `<option value="${escH(d)}">${escH(d)}</option>`
     ).join('');
 
-    // Modal dropdown
-    const mDept = document.getElementById('m-dept');
-    if (mDept) {
-        const cur = mDept.value;
-        mDept.innerHTML = '<option value="">Select Specialization</option>' + opts;
-        if (cur) mDept.value = cur;
+    // Registration modal dropdown
+    const rdDept = document.getElementById('rd-department');
+    if (rdDept) {
+        const cur = rdDept.value;
+        rdDept.innerHTML = '<option value="">Select Specialization</option>' + opts;
+        if (cur) rdDept.value = cur;
     }
 
     // Filter dropdown
@@ -1954,14 +2244,15 @@ function toggleLeaveFields() {
 
 function showDoctorModal() {
     editingId = 0;
-    document.getElementById('doctorModalTitle').innerHTML = '<i class="bi bi-plus-circle"></i> Add New Doctor';
-    document.getElementById('m-name').value    = '';
+    document.getElementById('doctorModalTitle').innerHTML = '<i class="bi bi-plus-circle"></i> Add Registered Doctor';
+    document.getElementById('m-doctor').value = '';
+    document.getElementById('m-dept').value = '';
     document.getElementById('m-resume').value  = '';
-    document.getElementById('m-dept').value    = '';
     document.getElementById('m-status').value  = 'On Schedule';
     document.getElementById('m-tentative').checked = false;
     document.getElementById('m-remarks').value = '';
     document.getElementById('form-error').style.display = 'none';
+    populateDoctorDropdown();
     toggleLeaveFields();
     new bootstrap.Modal(document.getElementById('doctorModal')).show();
 }
@@ -1974,30 +2265,39 @@ function openEditModal(id) {
     const mappedStatus = STATUS_MAP[(doctor.status ?? '').toLowerCase().trim()] ?? 'On Schedule';
 
     document.getElementById('doctorModalTitle').innerHTML = '<i class="bi bi-pencil"></i> Edit Doctor';
-    document.getElementById('m-name').value    = doctor.name;
-    document.getElementById('m-dept').value = doctor.department ?? '';
-    document.getElementById('m-status').value  = mappedStatus;
     document.getElementById('m-resume').value  = doctor.resume_date ?? '';
     document.getElementById('m-tentative').checked = doctor.is_tentative == 1;
     document.getElementById('form-error').style.display = 'none';
-    toggleLeaveFields();
     document.getElementById('m-remarks').value = doctor.remarks ?? '';
+    document.getElementById('m-status').value  = mappedStatus;
 
+    const registered = registeredDoctors.find(rd => rd.name === doctor.name);
+    populateDoctorDropdown(registered ? registered.id : null);
+    if (registered) {
+        document.getElementById('m-doctor').value = registered.id;
+        document.getElementById('m-dept').value   = registered.department;
+    } else {
+        document.getElementById('m-doctor').value = '';
+        document.getElementById('m-dept').value   = doctor.department ?? '';
+    }
+
+    toggleLeaveFields();
     new bootstrap.Modal(document.getElementById('doctorModal')).show();
 }
 
 async function saveDoctor() {
-    const name      = document.getElementById('m-name').value.trim().toUpperCase();
-    const dept      = document.getElementById('m-dept').value.toUpperCase();
-    const status    = document.getElementById('m-status').value;
-    const resume    = document.getElementById('m-resume').value;
-    const tentative = document.getElementById('m-tentative').checked ? 1 : 0;
-    const remarks   = document.getElementById('m-remarks').value;
-    const errEl     = document.getElementById('form-error');
+    const doctorSelect = document.getElementById('m-doctor');
+    const name        = doctorSelect?.selectedOptions[0]?.textContent?.trim().toUpperCase() || '';
+    const dept        = document.getElementById('m-dept').value.toUpperCase();
+    const status      = document.getElementById('m-status').value;
+    const resume      = document.getElementById('m-resume').value;
+    const tentative   = document.getElementById('m-tentative').checked ? 1 : 0;
+    const remarks     = document.getElementById('m-remarks').value;
+    const errEl       = document.getElementById('form-error');
 
     errEl.style.display = 'none';
 
-    // Validate each field individually for accurate error messages
+    if (!doctorSelect || !doctorSelect.value) { showFormError(errEl, 'Please select a registered doctor.'); return; }
     if (!name)   { showFormError(errEl, 'Doctor name is required.'); return; }
     if (!dept)   { showFormError(errEl, 'Please select a specialization.'); return; }
     if (!status) { showFormError(errEl, 'Please select a status.'); return; }
@@ -2005,7 +2305,7 @@ async function saveDoctor() {
     if (status === 'On Leave' && !remarks) { showFormError(errEl, 'Please select a leave type.'); return; }
 
     const payload = { ajax: 'save_doctor', id: editingId, name, department: dept, status, resume_date: resume, remarks };
-    if (tentative) payload.is_tentative = '1'; // omit key entirely when unchecked — PHP uses isset()
+    if (tentative) payload.is_tentative = '1';
 
     const res = await apiPost(payload);
 
@@ -2025,6 +2325,8 @@ async function saveDoctor() {
     }
 
     renderTable(allDoctors);
+    // Update available registered-doctor dropdown (exclude the one just scheduled)
+    populateDoctorDropdown();
     toast(res.insert ? 'Doctor added!' : 'Doctor updated!');
 }
 
@@ -2041,7 +2343,7 @@ async function deleteOne(id, btn) {
     const row = btn.closest('tr');
     row.style.transition = 'opacity .3s';
     row.style.opacity = '0';
-    setTimeout(() => renderTable(allDoctors), 300);
+    setTimeout(() => { renderTable(allDoctors); populateDoctorDropdown(); }, 300);
 
     toast('Doctor deleted.');
 }
@@ -2071,6 +2373,7 @@ async function deleteSelected() {
 
     allDoctors = allDoctors.filter(d => !ids.includes(String(d.id)));
     renderTable(allDoctors);
+    populateDoctorDropdown();
     toast(`${ids.length} doctor(s) deleted.`);
 }
 
@@ -2094,6 +2397,7 @@ async function confirmDeleteAll() {
     if (!res.ok) { toast('Delete failed', true); return; }
     allDoctors = [];
     renderTable([]);
+    populateDoctorDropdown();
     toast('All doctors deleted.');
 }
 
@@ -2425,6 +2729,16 @@ if (IS_SUPERADMIN) {
     // Register the password-reveal listener once — onUserPasswordInput checks
     // editingUserId at call time so it safely does nothing in add mode.
     document.getElementById('au-password').addEventListener('input', onUserPasswordInput);
+    }
+
+    // Force uppercase while typing for the registered-doctor name input
+    const rdNameEl = document.getElementById('rd-name');
+    if (rdNameEl) {
+        rdNameEl.addEventListener('input', function () {
+            const pos = this.selectionStart;
+            this.value = this.value.toUpperCase();
+            try { this.setSelectionRange(pos, pos); } catch (e) { /* ignore */ }
+        });
 }
 </script>
 </body>

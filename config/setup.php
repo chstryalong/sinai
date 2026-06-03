@@ -98,8 +98,6 @@ try {
             department   VARCHAR(100) DEFAULT NULL,
             status       VARCHAR(50)  NOT NULL DEFAULT 'No Medical',
             resume_date  DATE         DEFAULT NULL,
-            appt_start   TIME         DEFAULT NULL,
-            appt_end     TIME         DEFAULT NULL,
             remarks      TEXT         DEFAULT NULL,
             is_tentative TINYINT(1)   DEFAULT 0,
             updated_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -138,6 +136,18 @@ try {
             id         INT(11)      NOT NULL AUTO_INCREMENT,
             name       VARCHAR(100) NOT NULL UNIQUE,
             created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+
+    // registered_doctors — master doctor registry used by the status module
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS registered_doctors (
+            id           INT(11)      NOT NULL AUTO_INCREMENT,
+            name         VARCHAR(100) NOT NULL UNIQUE,
+            department   VARCHAR(100) NOT NULL,
+            created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");

@@ -225,7 +225,7 @@ if (isset($_POST['login'])) {
             <div class="mb-3">
                 <label for="username" class="form-label">Username</label>
                 <input type="text" class="form-control" id="username" name="username"
-                       placeholder="Enter your username" required autocomplete="username">
+                       placeholder="Enter your username" required autocomplete="username" autofocus>
             </div>
 
             <div class="mb-3">
