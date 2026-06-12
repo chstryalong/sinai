@@ -1383,6 +1383,23 @@ $countOnLeave   = count(array_filter($initialDoctors, fn($d) => $d['label'] === 
                     <i class="bi bi-plus-lg"></i> Register Doctor
                 </button>
             </div>
+            <div class="section-card-body" style="padding-bottom:0;">
+                <div class="filter-bar">
+                    <div class="search-wrap" style="flex:1; min-width:220px;">
+                        <i class="bi bi-search"></i>
+                        <input id="registered-search" type="text" class="form-control"
+                               placeholder="Search names..."
+                               oninput="renderRegisteredDoctorsTable(filterRegisteredDoctors())">
+                    </div>
+                    <select id="registered-dept-filter" class="form-select" style="width:220px;"
+                            onchange="renderRegisteredDoctorsTable(filterRegisteredDoctors())">
+                        <option value="">All specializations</option>
+                        <?php foreach ($deptList as $d): ?>
+                        <option><?= htmlspecialchars($d) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
             <div class="table-responsive">
                 <table class="data-table">
                     <thead>
@@ -2121,8 +2138,21 @@ async function loadRegisteredDoctors() {
     const data = await res.json();
     if (!data.ok) return;
     registeredDoctors = data.registered_doctors || [];
-    renderRegisteredDoctorsTable(registeredDoctors);
+    renderRegisteredDoctorsTable(filterRegisteredDoctors());
     populateDoctorDropdown();
+}
+
+function filterRegisteredDoctors() {
+    const search = (document.getElementById('registered-search')?.value ?? '').toLowerCase().trim();
+    const dept   = (document.getElementById('registered-dept-filter')?.value ?? '').trim();
+
+    return registeredDoctors.filter(doctor => {
+        const name = String(doctor.name ?? '').toLowerCase();
+        const department = String(doctor.department ?? '');
+        const matchesName = name.includes(search);
+        const matchesDept = !dept || department === dept;
+        return matchesName && matchesDept;
+    });
 }
 
 function renderRegisteredDoctorsTable(doctors) {
@@ -2220,6 +2250,13 @@ function populateDeptDropdowns() {
         const cur = fDept.value;
         fDept.innerHTML = '<option value="">All Specializations</option>' + opts;
         if (cur) fDept.value = cur;
+    }
+
+    const regDept = document.getElementById('registered-dept-filter');
+    if (regDept) {
+        const cur = regDept.value;
+        regDept.innerHTML = '<option value="">All specializations</option>' + opts;
+        if (cur) regDept.value = cur;
     }
 }
 
